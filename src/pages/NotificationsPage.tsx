@@ -1,42 +1,58 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, CheckCheck, Loader2, BellOff } from 'lucide-react';
+import { Bell, BellOff, CheckCheck, Loader2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  fetchNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
+  fetchNotifications, markNotificationRead, markAllNotificationsRead,
 } from '@/services/notifications';
+import { useAuth } from '@/contexts/AuthContext';
 import { RippleButton } from '@/components/RippleButton';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import { cn } from '@/lib/utils';
+import type { Notification } from '@/types';
+
+const NOTIF_ICONS: Record<string, LucideIcon> = {
+  request: Bell,
+  default: Bell,
+};
+
+function getIcon(type: string): LucideIcon {
+  return NOTIF_ICONS[type] ?? Bell;
+}
 
 export function NotificationsPage() {
+  const { profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: notifications = [], isLoading, error, refetch } = useQuery({
     queryKey: ['notifications'],
-    queryFn: fetchNotifications,
+    queryFn: () => fetchNotifications(profile!.id, isAdmin),
+    refetchInterval: 15_000,
   });
+
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => markNotificationRead(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Erro ao marcar notificação.'),
   });
 
   const markAllMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead(profile!.id, isAdmin),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success('Todas as notificações marcadas como lidas.');
     },
+    onError: (err: Error) => toast.error(err.message || 'Erro ao atualizar notificações.'),
   });
 
   if (error) {
     return <ErrorState message={error.message} onRetry={() => refetch()} />;
   }
-
-  const unread = notifications.filter((n) => !n.read);
 
   return (
     <div className="space-y-6">
@@ -44,15 +60,11 @@ export function NotificationsPage() {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Notificações</h2>
           <p className="text-sm text-muted-foreground">
-            {unread.length > 0 ? `${unread.length} não lida(s)` : 'Você está em dia!'}
+            {unreadCount > 0 ? `Você tem ${unreadCount} notificação(ões) não lida(s)` : 'Todas as notificações foram lidas'}
           </p>
         </div>
-        {unread.length > 0 && (
-          <RippleButton
-            variant="outline"
-            onClick={() => markAllMutation.mutate()}
-            disabled={markAllMutation.isPending}
-          >
+        {unreadCount > 0 && (
+          <RippleButton variant="outline" onClick={() => markAllMutation.mutate()} disabled={markAllMutation.isPending}>
             {markAllMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
             Marcar todas como lidas
           </RippleButton>
@@ -73,42 +85,48 @@ export function NotificationsPage() {
         />
       ) : (
         <div className="space-y-2">
-          {notifications.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => !n.read && markReadMutation.mutate(n.id)}
-              className={cn(
-                'flex w-full items-start gap-4 rounded-xl border border-border p-4 text-left shadow-sm transition-all hover:shadow-md',
-                n.read ? 'bg-card' : 'bg-primary/5 border-primary/20'
-              )}
-            >
+          {notifications.map((n: Notification) => {
+            const Icon = getIcon(n.type);
+            return (
               <div
-                className={cn(
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                  n.read ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'
-                )}
+                key={n.id}
+                className={`flex items-start gap-4 rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md ${
+                  n.read ? 'border-border' : 'border-primary/30 bg-primary/5'
+                }`}
               >
-                <Bell className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">{n.title}</span>
-                  {!n.read && (
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                  )}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                  n.read ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'
+                }`}>
+                  <Icon className="h-5 w-5" />
                 </div>
-                {n.message && (
-                  <p className="text-sm text-muted-foreground">{n.message}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-foreground">{n.title}</p>
+                    {!n.read && (
+                      <Badge className="bg-primary/15 text-primary">Nova</Badge>
+                    )}
+                  </div>
+                  {n.message && (
+                    <p className="mt-1 text-sm text-muted-foreground">{n.message}</p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {new Date(n.created_at).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                {!n.read && (
+                  <RippleButton
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => markReadMutation.mutate(n.id)}
+                    disabled={markReadMutation.isPending}
+                  >
+                    <CheckCheck className="h-4 w-4" />
+                    Marcar como lida
+                  </RippleButton>
                 )}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(n.created_at).toLocaleString('pt-BR')}
-                </p>
               </div>
-              {!n.read && (
-                <span className="shrink-0 text-xs font-medium text-primary">Clique para marcar como lida</span>
-              )}
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

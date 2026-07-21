@@ -2,26 +2,11 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ClipboardList,
-  Plus,
-  Search,
-  Loader2,
-  Check,
-  X,
-  Trash2,
-  Package,
-  Clock,
-  CheckCircle2,
-  XCircle,
+  ClipboardList, Plus, Search, Loader2, Check, X, Trash2, Package, Clock, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  fetchRequests,
-  fetchMyRequests,
-  createRequestWithItems,
-  approveRequest,
-  rejectRequest,
-  deleteRequest,
+  fetchRequests, fetchMyRequests, createRequestWithItems, approveRequest, rejectRequest, deleteRequest,
 } from '@/services/requests';
 import { fetchProducts } from '@/services/products';
 import { fetchIndustries } from '@/services/industries';
@@ -32,37 +17,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import {
-  REQUEST_STATUS_LABELS,
-  REQUEST_STATUS_COLORS,
-  ROLE_LABELS,
-} from '@/lib/constants';
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS, ROLE_LABELS } from '@/lib/constants';
 import type { StockRequest, Product } from '@/types';
 
 export function RequestsPage() {
@@ -82,15 +48,8 @@ export function RequestsPage() {
     refetchInterval: 15_000,
   });
 
-  const { data: products = [] } = useQuery({
-    queryKey: ['products'],
-    queryFn: fetchProducts,
-  });
-
-  const { data: industries = [] } = useQuery({
-    queryKey: ['industries'],
-    queryFn: fetchIndustries,
-  });
+  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: fetchProducts });
+  const { data: industries = [] } = useQuery({ queryKey: ['industries'], queryFn: fetchIndustries });
 
   const filtered = useMemo(() => {
     return allRequests.filter((r) => {
@@ -110,12 +69,10 @@ export function RequestsPage() {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['requests-by-status'] });
       toast.success('Solicitação criada! O administrador foi notificado.');
+      setCreateOpen(false);
     },
-    onError: (err: Error) => {
-      toast.error(err.message || 'Erro ao criar solicitação.');
-    },
+    onError: (err: Error) => toast.error(err.message || 'Erro ao criar solicitação.'),
   });
 
   const approveMutation = useMutation({
@@ -126,7 +83,6 @@ export function RequestsPage() {
       queryClient.invalidateQueries({ queryKey: ['movements'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['movements-by-day'] });
       toast.success('Solicitação aprovada e estoque atualizado!');
     },
     onError: (err: Error) => toast.error(err.message || 'Erro ao aprovar solicitação.'),
@@ -138,7 +94,6 @@ export function RequestsPage() {
       queryClient.invalidateQueries({ queryKey: ['requests'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['requests-by-status'] });
       toast.success('Solicitação rejeitada.');
       setRejectTarget(null);
     },
@@ -170,23 +125,20 @@ export function RequestsPage() {
         </div>
         {isAdmin ? (
           <RippleButton onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Nova Solicitação
+            <Plus className="h-4 w-4" /> Nova Solicitação
           </RippleButton>
         ) : (
           <RippleButton onClick={() => navigate('/solicitar')}>
-            <Plus className="h-4 w-4" />
-            Nova Solicitação
+            <Plus className="h-4 w-4" /> Nova Solicitação
           </RippleButton>
         )}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="relative min-w-48 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder={isAdmin ? "Buscar por solicitante..." : "Buscar..."}
+            placeholder={isAdmin ? 'Buscar por solicitante...' : 'Buscar...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -205,7 +157,6 @@ export function RequestsPage() {
         </Select>
       </div>
 
-      {/* List */}
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
@@ -271,8 +222,7 @@ export function RequestsPage() {
                           variant="destructive"
                           onClick={(e) => { e.stopPropagation(); setRejectTarget(r); }}
                         >
-                          <X className="h-4 w-4" />
-                          Rejeitar
+                          <X className="h-4 w-4" /> Rejeitar
                         </RippleButton>
                       </>
                     )}
@@ -282,8 +232,7 @@ export function RequestsPage() {
                         variant="outline"
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Cancelar
+                        <Trash2 className="h-4 w-4" /> Cancelar
                       </RippleButton>
                     )}
                     {canDelete && r.status !== 'pending' && (
@@ -343,17 +292,17 @@ export function RequestsPage() {
         </div>
       )}
 
-      {/* Create Dialog */}
-      <CreateRequestDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        products={products}
-        industries={industries}
-        onSubmit={(items, notes) => createMutation.mutate({ items, notes })}
-        loading={createMutation.isPending}
-      />
+      {createOpen && (
+        <CreateRequestDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          products={products}
+          industries={industries}
+          onSubmit={(items, notes) => createMutation.mutate({ items, notes })}
+          loading={createMutation.isPending}
+        />
+      )}
 
-      {/* Reject Dialog */}
       {rejectTarget && (
         <RejectDialog
           request={rejectTarget}
@@ -363,7 +312,6 @@ export function RequestsPage() {
         />
       )}
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -372,9 +320,7 @@ export function RequestsPage() {
                 ? 'Cancelar solicitação?'
                 : 'Excluir solicitação?'}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -393,10 +339,7 @@ export function RequestsPage() {
 
 function StatusIcon({ status }: { status: string }) {
   const map: Record<string, typeof Clock> = {
-    pending: Clock,
-    approved: CheckCircle2,
-    rejected: XCircle,
-    fulfilled: Package,
+    pending: Clock, approved: CheckCircle2, rejected: XCircle, fulfilled: Package,
   };
   const Icon = map[status] ?? Clock;
   const color: Record<string, string> = {
@@ -459,17 +402,11 @@ function CreateRequestDialog({ open, onClose, products, industries, onSubmit, lo
       return;
     }
     onSubmit(items, notes || undefined);
-    setItems([]);
-    setNotes('');
-    setSelectedProduct('');
-    setSelectedIndustry('');
+    setItems([]); setNotes(''); setSelectedProduct(''); setSelectedIndustry('');
   };
 
   const handleClose = () => {
-    setItems([]);
-    setNotes('');
-    setSelectedProduct('');
-    setSelectedIndustry('');
+    setItems([]); setNotes(''); setSelectedProduct(''); setSelectedIndustry('');
     onClose();
   };
 
@@ -480,9 +417,7 @@ function CreateRequestDialog({ open, onClose, products, industries, onSubmit, lo
       <DialogContent className="max-h-90vh overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nova Solicitação</DialogTitle>
-          <DialogDescription>
-            Selecione os materiais que deseja solicitar do estoque.
-          </DialogDescription>
+          <DialogDescription>Selecione os materiais que deseja solicitar do estoque.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -529,23 +464,16 @@ function CreateRequestDialog({ open, onClose, products, industries, onSubmit, lo
                         {product?.name ?? 'Produto'}
                       </div>
                       {industry && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          Destino: {industry.name}
-                        </div>
+                        <div className="text-xs text-muted-foreground truncate">Destino: {industry.name}</div>
                       )}
                     </div>
                     <Input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
+                      type="number" min={1} value={item.quantity}
                       onChange={(e) => updateQty(index, parseInt(e.target.value, 10) || 0)}
                       className="h-8 w-20"
                     />
-                    <button
-                      type="button"
-                      onClick={() => updateQty(index, 0)}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    >
+                    <button type="button" onClick={() => updateQty(index, 0)}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -556,13 +484,8 @@ function CreateRequestDialog({ open, onClose, products, industries, onSubmit, lo
 
           <div className="space-y-2">
             <Label htmlFor="notes">Observações</Label>
-            <Textarea
-              id="notes"
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Informações adicionais..."
-            />
+            <Textarea id="notes" rows={2} value={notes}
+              onChange={(e) => setNotes(e.target.value)} placeholder="Informações adicionais..." />
           </div>
 
           <DialogFooter>
@@ -597,19 +520,12 @@ function RejectDialog({ request, onClose, onSubmit, loading }: RejectDialogProps
             Solicitação #{request.id.slice(0, 8)} de {request.profile?.name ?? 'Usuário'} ({ROLE_LABELS[request.profile?.role ?? 'vendedor']})
           </DialogDescription>
         </DialogHeader>
-        <form
-          onSubmit={(e) => { e.preventDefault(); onSubmit(reason || undefined); }}
-          className="space-y-4"
-        >
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(reason || undefined); }} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="reason">Motivo (opcional)</Label>
-            <Textarea
-              id="reason"
-              rows={3}
-              value={reason}
+            <Textarea id="reason" rows={3} value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Ex: Estoque insuficiente, item indisponível..."
-            />
+              placeholder="Ex: Estoque insuficiente, item indisponível..." />
           </div>
           <DialogFooter>
             <RippleButton type="button" variant="ghost" onClick={onClose}>Cancelar</RippleButton>

@@ -1,37 +1,26 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Loader2,
-  Save,
-  ClipboardList,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Phone,
-  User,
-  Calendar,
-  Shield,
-} from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2, Save, ClipboardList, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateProfile } from '@/services/users';
-import { supabase } from '@/lib/supabase';
 import { RippleButton } from '@/components/RippleButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ROLE_LABELS, ROLE_COLORS } from '@/lib/constants';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ErrorState } from '@/components/ErrorState';
+import { ROLE_LABELS, ROLE_COLORS } from '@/lib/constants';
 
-const schema = z.object({
-  name: z.string().min(2, 'Nome obrigatório'),
-  phone: z.string().optional(),
-});
+interface RequestStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
 
-type Form = z.infer<typeof schema>;
-
-async function fetchMyStats(userId: string) {
+async function fetchRequestStats(userId: string): Promise<RequestStats> {
   const { data, error } = await supabase
     .from('requests')
     .select('status')
@@ -46,203 +35,141 @@ async function fetchMyStats(userId: string) {
   };
 }
 
+function getInitials(name: string): string {
+  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+}
+
 export function ProfilePage() {
-  const { profile, refreshProfile, isAdmin } = useAuth();
+  const { profile, isAdmin, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
+  const [name, setName] = useState(profile?.name ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
 
-  const { data: stats } = useQuery({
-    queryKey: ['my-request-stats', profile?.id],
-    queryFn: () => fetchMyStats(profile!.id),
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['profile-request-stats', profile?.id],
+    queryFn: () => fetchRequestStats(profile!.id),
     enabled: !!profile?.id && !isAdmin,
-    retry: 1,
   });
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<Form>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: profile?.name ?? '',
-      phone: profile?.phone ?? '',
-    },
-  });
-
-  const mutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: { name: string; phone?: string } }) =>
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: { name: string; phone: string } }) =>
       updateProfile(id, input),
-    onSuccess: async () => {
-      await refreshProfile();
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      toast.success('Perfil atualizado!');
+      refreshProfile();
+      toast.success('Perfil atualizado com sucesso!');
     },
-    onError: () => toast.error('Erro ao atualizar perfil.'),
+    onError: (err: Error) => toast.error(err.message || 'Erro ao atualizar perfil.'),
   });
 
-  if (!profile) return null;
+  if (!profile) {
+    return <ErrorState message="Perfil não encontrado." />;
+  }
 
-  const initials = profile.name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((n: string) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || '?';
-
-  const memberSince = (() => {
-    try {
-      return new Date(profile.created_at).toLocaleDateString('pt-BR', {
-        month: 'long',
-        year: 'numeric',
-      });
-    } catch {
-      return 'N/A';
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Informe seu nome.');
+      return;
     }
-  })();
-
-  const onSubmit = (data: Form) => {
-    mutation.mutate({
-      id: profile.id,
-      input: { name: data.name, phone: data.phone || undefined },
-    });
+    updateMutation.mutate({ id: profile.id, input: { name: name.trim(), phone: phone.trim() } });
   };
 
   const statCards = [
-    {
-      icon: ClipboardList,
-      label: 'Total',
-      value: stats?.total ?? 0,
-      color: 'text-muted-foreground',
-      bg: 'bg-muted',
-    },
-    {
-      icon: Clock,
-      label: 'Pendentes',
-      value: stats?.pending ?? 0,
-      color: 'text-warning',
-      bg: 'bg-warning/10',
-    },
-    {
-      icon: CheckCircle2,
-      label: 'Aprovadas',
-      value: stats?.approved ?? 0,
-      color: 'text-success',
-      bg: 'bg-success/10',
-    },
-    {
-      icon: XCircle,
-      label: 'Recusadas',
-      value: stats?.rejected ?? 0,
-      color: 'text-destructive',
-      bg: 'bg-destructive/10',
-    },
+    { icon: ClipboardList, label: 'Total', value: stats?.total ?? 0, iconBg: 'bg-muted', iconColor: 'text-muted-foreground' },
+    { icon: Clock, label: 'Pendentes', value: stats?.pending ?? 0, iconBg: 'bg-warning/10', iconColor: 'text-warning' },
+    { icon: CheckCircle2, label: 'Aprovadas', value: stats?.approved ?? 0, iconBg: 'bg-success/10', iconColor: 'text-success' },
+    { icon: XCircle, label: 'Recusadas', value: stats?.rejected ?? 0, iconBg: 'bg-destructive/10', iconColor: 'text-destructive' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground">Meu Perfil</h2>
         <p className="text-sm text-muted-foreground">Gerencie suas informações pessoais</p>
       </div>
 
-      <div className="mx-auto max-w-2xl space-y-6">
-        {/* Hero card */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <div className="h-24 w-full bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
-          <div className="px-6 pb-6">
-            <div className="-mt-10 mb-4 flex items-end justify-between">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-card bg-primary shadow-lg shadow-primary/20">
-                <span className="text-2xl font-bold text-primary-foreground">{initials}</span>
-              </div>
-              <Badge className={`${ROLE_COLORS[profile.role]} mb-1`}>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-20 w-20">
+            <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+              {getInitials(profile.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">{profile.name}</h3>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge className={ROLE_COLORS[profile.role]}>
                 {ROLE_LABELS[profile.role]}
               </Badge>
-            </div>
-
-            <h3 className="text-xl font-bold text-foreground">{profile.name}</h3>
-
-            <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
-              {profile.phone && (
-                <span className="flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" />
-                  {profile.phone}
-                </span>
+              {profile.active ? (
+                <Badge className="bg-success/15 text-success">Ativo</Badge>
+              ) : (
+                <Badge className="bg-muted text-muted-foreground">Inativo</Badge>
               )}
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                Membro desde {memberSince}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5" />
-                {ROLE_LABELS[profile.role]}
-              </span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Membro desde {new Date(profile.created_at).toLocaleDateString('pt-BR')}
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* Stats — only for non-admin */}
-        {!isAdmin && (
-          <div>
-            <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Minhas solicitações
-            </h4>
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h3 className="text-sm font-semibold text-foreground">Editar informações</h3>
+        <div className="space-y-2">
+          <Label htmlFor="profile-name">Nome</Label>
+          <Input
+            id="profile-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Seu nome completo"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="profile-phone">Telefone</Label>
+          <Input
+            id="profile-phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="(00) 0000-0000"
+          />
+        </div>
+        <div className="flex justify-end pt-2">
+          <RippleButton type="submit" disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar Alterações
+          </RippleButton>
+        </div>
+      </form>
+
+      {!isAdmin && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold text-foreground">Minhas Solicitações</h3>
+          {statsError ? (
+            <ErrorState message={statsError.message} />
+          ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {statCards.map((card) => {
                 const Icon = card.icon;
                 return (
-                  <div
-                    key={card.label}
-                    className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center shadow-sm"
-                  >
-                    <div
-                      className={`flex h-9 w-9 items-center justify-center rounded-full ${card.bg}`}
-                    >
-                      <Icon className={`h-4 w-4 ${card.color}`} />
+                  <div key={card.label} className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full ${card.iconBg}`}>
+                      <Icon className={`h-4 w-4 ${card.iconColor}`} />
                     </div>
-                    <p className="text-2xl font-bold leading-none text-foreground">{card.value}</p>
+                    {statsLoading ? (
+                      <div className="h-7 w-10 animate-pulse rounded bg-muted" />
+                    ) : (
+                      <p className="text-2xl font-bold text-foreground">{card.value}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">{card.label}</p>
                   </div>
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* Edit form */}
-        <div className="rounded-2xl border border-border bg-card shadow-sm">
-          <div className="border-b border-border px-6 py-4">
-            <h4 className="flex items-center gap-2 font-semibold text-foreground">
-              <User className="h-4 w-4 text-muted-foreground" />
-              Informações pessoais
-            </h4>
-          </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome completo *</Label>
-              <Input id="name" placeholder="Seu nome completo" {...register('name')} />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefone / WhatsApp</Label>
-              <Input id="phone" placeholder="(87) 99999-9999" {...register('phone')} />
-            </div>
-            <div className="pt-2">
-              <RippleButton type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                Salvar alterações
-              </RippleButton>
-            </div>
-          </form>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

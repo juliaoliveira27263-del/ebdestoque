@@ -10,17 +10,7 @@ export async function fetchIndustries(): Promise<Industry[]> {
   return (data ?? []) as Industry[];
 }
 
-export interface IndustryInput {
-  name: string;
-  cnpj?: string;
-  contact_name?: string;
-  contact_email?: string;
-  contact_phone?: string;
-  address?: string;
-  active: boolean;
-}
-
-export async function createIndustry(input: IndustryInput): Promise<Industry> {
+export async function createIndustry(input: Omit<Industry, 'id' | 'created_at' | 'updated_at'>): Promise<Industry> {
   const { data, error } = await supabase
     .from('industries')
     .insert(input)
@@ -30,10 +20,7 @@ export async function createIndustry(input: IndustryInput): Promise<Industry> {
   return data as Industry;
 }
 
-export async function updateIndustry(
-  id: string,
-  input: Partial<IndustryInput>
-): Promise<Industry> {
+export async function updateIndustry(id: string, input: Partial<Industry>): Promise<Industry> {
   const { data, error } = await supabase
     .from('industries')
     .update(input)

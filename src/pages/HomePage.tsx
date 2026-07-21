@@ -48,21 +48,17 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Greeting */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Olá, {firstName}!</h1>
         <p className="mt-1 text-sm text-muted-foreground">Bem-vindo ao portal de solicitações</p>
       </div>
 
-      {/* Main CTA */}
       <div
         className="group relative overflow-hidden rounded-2xl bg-primary p-8 shadow-xl shadow-primary/30 cursor-pointer select-none transition-all hover:brightness-105 active:scale-[0.99]"
         onClick={() => navigate('/solicitar')}
       >
-        {/* Background decoration */}
         <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10" />
         <div className="absolute -bottom-6 -right-2 h-24 w-24 rounded-full bg-white/5" />
-
         <div className="relative flex items-center justify-between">
           <div>
             <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
@@ -75,7 +71,6 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Stat Cards */}
       <div>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Minhas solicitações

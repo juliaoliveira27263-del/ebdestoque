@@ -1,43 +1,40 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { QueryProvider } from '@/contexts/QueryProvider';
-import { Toaster } from 'sonner';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { PWAInstallBanner } from '@/components/PWAInstallBanner';
-import { PWAUpdateToast } from '@/components/PWAUpdateToast';
-import { lazy, Suspense } from 'react';
-import { PageLoader } from '@/components/PageLoader';
+import { Loader2 } from 'lucide-react';
 
-const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
 const NewRequestPage = lazy(() => import('@/pages/NewRequestPage').then((m) => ({ default: m.NewRequestPage })));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const ProductsPage = lazy(() => import('@/pages/ProductsPage').then((m) => ({ default: m.ProductsPage })));
 const RequestsPage = lazy(() => import('@/pages/RequestsPage').then((m) => ({ default: m.RequestsPage })));
 const MovementsPage = lazy(() => import('@/pages/MovementsPage').then((m) => ({ default: m.MovementsPage })));
+const IndustriesPage = lazy(() => import('@/pages/IndustriesPage').then((m) => ({ default: m.IndustriesPage })));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
 const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
-const IndustriesPage = lazy(() => import('@/pages/IndustriesPage').then((m) => ({ default: m.IndustriesPage })));
-const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 function RootRedirect() {
-  const { profile, loading } = useAuth();
+  const { isAdmin, loading } = useAuth();
   if (loading) return <PageLoader />;
-  if (profile?.role === 'admin') return <Navigate to="/dashboard" replace />;
-  return <Navigate to="/solicitar" replace />;
+  return <Navigate to={isAdmin ? '/dashboard' : '/home'} replace />;
 }
 
 function AppRoutes() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return <PageLoader />;
-  }
-
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -71,14 +68,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <QueryProvider>
-          <BrowserRouter>
-            <AppRoutes />
-            <PWAInstallBanner />
-          </BrowserRouter>
-          <PWAUpdateToast />
-          <Toaster position="top-right" richColors closeButton />
-        </QueryProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
   );

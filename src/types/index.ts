@@ -1,21 +1,4 @@
-export type UserRole = 'admin' | 'promotor' | 'supervisor' | 'vendedor';
-
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
-
-export type MovementType = 'in' | 'out' | 'adjustment';
-
-export interface Industry {
-  id: string;
-  name: string;
-  cnpj: string | null;
-  contact_name: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
-  address: string | null;
-  active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import type { UserRole, RequestStatus, MovementType } from '@/lib/constants';
 
 export interface Profile {
   id: string;
@@ -31,6 +14,19 @@ export interface Category {
   id: string;
   name: string;
   description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Industry {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address: string | null;
+  active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +49,17 @@ export interface Product {
   industry?: Industry | null;
 }
 
+export interface RequestItem {
+  id: string;
+  request_id: string;
+  product_id: string;
+  quantity: number;
+  industry_id: string | null;
+  created_at: string;
+  product?: Product | null;
+  industry?: Industry | null;
+}
+
 export interface StockRequest {
   id: string;
   user_id: string;
@@ -63,17 +70,6 @@ export interface StockRequest {
   updated_at: string;
   profile?: Profile | null;
   request_items?: RequestItem[];
-}
-
-export interface RequestItem {
-  id: string;
-  request_id: string;
-  product_id: string;
-  quantity: number;
-  industry_id: string | null;
-  created_at: string;
-  product?: Product | null;
-  industry?: Industry | null;
 }
 
 export interface Movement {
@@ -98,14 +94,4 @@ export interface Notification {
   read: boolean;
   related_id: string | null;
   created_at: string;
-}
-
-export interface DashboardStats {
-  totalProducts: number;
-  totalStock: number;
-  lowStockCount: number;
-  pendingRequests: number;
-  approvedRequests: number;
-  totalUsers: number;
-  totalMovements: number;
 }

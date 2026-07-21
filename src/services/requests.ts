@@ -20,26 +20,13 @@ export async function fetchMyRequests(userId: string): Promise<StockRequest[]> {
   return (data ?? []) as StockRequest[];
 }
 
-export async function fetchRequest(id: string): Promise<StockRequest | null> {
-  const { data, error } = await supabase
-    .from('requests')
-    .select('*, profile:profiles(*), request_items(*, product:products(*), industry:industries(*))')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  return data as StockRequest | null;
-}
-
 export interface RequestItemInput {
   product_id: string;
   quantity: number;
   industry_id?: string | null;
 }
 
-export async function createRequestWithItems(
-  items: RequestItemInput[],
-  notes?: string
-): Promise<StockRequest> {
+export async function createRequestWithItems(items: RequestItemInput[], notes?: string): Promise<StockRequest> {
   const { data, error } = await supabase.rpc('create_request_with_items', {
     p_items: items as unknown as never,
     p_notes: notes ?? null,
@@ -49,17 +36,12 @@ export async function createRequestWithItems(
 }
 
 export async function approveRequest(requestId: string): Promise<StockRequest> {
-  const { data, error } = await supabase.rpc('approve_request', {
-    p_request_id: requestId,
-  });
+  const { data, error } = await supabase.rpc('approve_request', { p_request_id: requestId });
   if (error) throw error;
   return data as StockRequest;
 }
 
-export async function rejectRequest(
-  requestId: string,
-  reason?: string
-): Promise<StockRequest> {
+export async function rejectRequest(requestId: string, reason?: string): Promise<StockRequest> {
   const { data, error } = await supabase.rpc('reject_request', {
     p_request_id: requestId,
     p_reason: reason ?? null,

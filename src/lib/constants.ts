@@ -1,4 +1,7 @@
-import type { UserRole, RequestStatus, MovementType } from '@/types';
+export const APP_NAME = 'EBD Petrolina';
+export const APP_SUBTITLE = 'Gestão de Estoque';
+
+export type UserRole = 'admin' | 'promotor' | 'supervisor' | 'vendedor';
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrador',
@@ -9,24 +12,28 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 export const ROLE_COLORS: Record<UserRole, string> = {
   admin: 'bg-primary text-primary-foreground',
-  promotor: 'bg-accent text-accent-foreground',
-  supervisor: 'bg-secondary text-secondary-foreground',
-  vendedor: 'bg-muted text-foreground',
+  promotor: 'bg-secondary text-secondary-foreground',
+  supervisor: 'bg-accent text-accent-foreground',
+  vendedor: 'bg-muted text-muted-foreground',
 };
+
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
 
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   pending: 'Pendente',
   approved: 'Aprovado',
   rejected: 'Rejeitado',
-  fulfilled: 'Entregue',
+  fulfilled: 'Atendido',
 };
 
 export const REQUEST_STATUS_COLORS: Record<RequestStatus, string> = {
-  pending: 'bg-warning text-warning-foreground',
-  approved: 'bg-success text-success-foreground',
-  rejected: 'bg-destructive text-destructive-foreground',
+  pending: 'bg-warning/15 text-warning',
+  approved: 'bg-success/15 text-success',
+  rejected: 'bg-destructive/15 text-destructive',
   fulfilled: 'bg-secondary text-secondary-foreground',
 };
+
+export type MovementType = 'in' | 'out' | 'adjustment';
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   in: 'Entrada',
@@ -35,10 +42,7 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
 };
 
 export const MOVEMENT_TYPE_COLORS: Record<MovementType, string> = {
-  in: 'text-success',
-  out: 'text-destructive',
-  adjustment: 'text-warning',
+  in: 'bg-success/15 text-success',
+  out: 'bg-destructive/15 text-destructive',
+  adjustment: 'bg-muted text-muted-foreground',
 };
-
-export const APP_NAME = 'EBD Petrolina';
-export const APP_SUBTITLE = 'Gestão de Estoque';

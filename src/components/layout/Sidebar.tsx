@@ -82,7 +82,6 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4 shrink-0">
           <div className="flex items-center gap-3 overflow-hidden min-w-0">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/30">
@@ -103,7 +102,6 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           {items.map((item) => {
             const Icon = item.icon;
@@ -138,7 +136,6 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           })}
         </nav>
 
-        {/* Collapse toggle — desktop only */}
         <div className="hidden lg:flex border-t border-border px-3 py-2 shrink-0">
           <button
             onClick={onToggleCollapse}
@@ -155,7 +152,6 @@ export function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarP
           </button>
         </div>
 
-        {/* User footer */}
         <div className="border-t border-border p-3 shrink-0">
           <div
             className={cn(

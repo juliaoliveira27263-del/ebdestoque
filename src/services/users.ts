@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
-import type { Profile, UserRole } from '@/types';
+import type { Profile } from '@/types';
+import type { UserRole } from '@/lib/constants';
 
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase
