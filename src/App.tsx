@@ -5,6 +5,7 @@ import { QueryProvider } from '@/contexts/QueryProvider';
 import { Toaster } from 'sonner';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoginPage } from '@/pages/LoginPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { PWAUpdateToast } from '@/components/PWAUpdateToast';
@@ -40,6 +41,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         element={
           <ProtectedRoute>

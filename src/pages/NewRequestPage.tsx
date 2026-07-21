@@ -141,7 +141,7 @@ export function NewRequestPage() {
       queryClient.invalidateQueries({ queryKey: ['my-request-stats'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success('Solicitação enviada! O administrador foi notificado.');
-      navigate('/profile');
+      navigate('/requests');
     },
     onError: (err: Error) => toast.error(err.message || 'Erro ao enviar solicitação.'),
   });
