@@ -9,16 +9,21 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
       />
-      <div className={cn('flex min-h-screen flex-col transition-all duration-200', collapsed ? 'lg:pl-20' : 'lg:pl-64')}>
+      <div
+        className={cn(
+          'flex flex-1 flex-col overflow-hidden transition-all duration-300',
+          collapsed ? 'lg:pl-20' : 'lg:pl-64'
+        )}
+      >
         <Header onMenuClick={() => setMobileOpen(true)} />
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

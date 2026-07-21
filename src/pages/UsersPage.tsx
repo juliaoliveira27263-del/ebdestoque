@@ -1,52 +1,62 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
 import { fetchProfiles, updateProfile } from '@/services/users';
+import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS } from '@/lib/constants';
-import type { UserRole } from '@/types';
+import type { Profile, UserRole } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+function getInitials(name: string): string {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
 
 export function UsersPage() {
-  const { profile: me } = useAuth();
+  const { profile: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: users = [], isLoading } = useQuery({ queryKey: ['profiles'], queryFn: fetchProfiles });
+  const { data: profiles = [], isLoading } = useQuery<Profile[]>({
+    queryKey: ['profiles'],
+    queryFn: fetchProfiles,
+  });
 
-  const handleRoleChange = async (id: string, role: UserRole) => {
-    if (id === me?.id) {
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateProfile>[1] }) =>
+      updateProfile(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+    onError: (err: Error) => toast.error('Erro: ' + err.message),
+  });
+
+  const handleRoleChange = (id: string, role: string) => {
+    if (id === currentUser?.id) {
       toast.error('Você não pode alterar seu próprio perfil');
       return;
     }
-    try {
-      await updateProfile(id, { role });
-      toast.success('Perfil atualizado!');
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
+    updateMutation.mutate({ id, input: { role: role as UserRole } });
+    toast.success('Perfil atualizado!');
   };
 
-  const handleActiveToggle = async (id: string, active: boolean) => {
-    if (id === me?.id) {
+  const handleActiveChange = (id: string, active: boolean) => {
+    if (id === currentUser?.id) {
       toast.error('Você não pode desativar seu próprio perfil');
       return;
     }
-    try {
-      await updateProfile(id, { active });
-      toast.success('Perfil atualizado!');
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
+    updateMutation.mutate({ id, input: { active } });
+    toast.success(active ? 'Usuário ativado!' : 'Usuário desativado!');
   };
-
-  if (isLoading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
 
   return (
     <div className="space-y-6">
@@ -55,50 +65,83 @@ export function UsersPage() {
         <p className="text-sm text-muted-foreground">Gerencie os usuários do sistema</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        <table className="w-full">
-          <thead className="border-b border-border bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Usuário</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Perfil</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Ativo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-primary text-sm font-semibold text-primary-foreground">
-                        {u.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{u.name}</p>
-                      <p className="text-xs text-muted-foreground">{u.phone ?? 'Sem telefone'}</p>
-                    </div>
-                    {u.id === me?.id && <Badge variant="secondary" className="text-xs">Você</Badge>}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <Select value={u.role} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)} disabled={u.id === me?.id}>
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
-                        <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="px-4 py-3">
-                  <Switch checked={u.active} onCheckedChange={(v) => handleActiveToggle(u.id, v)} disabled={u.id === me?.id} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {isLoading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Usuário</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Papel</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Telefone</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted-foreground">Ativo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {profiles.map((profile) => (
+                  <tr key={profile.id} className="hover:bg-muted/30">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+                            {getInitials(profile.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-foreground">
+                            {profile.name}
+                            {profile.id === currentUser?.id && (
+                              <span className="ml-2 text-xs text-muted-foreground">(Você)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {profile.id === currentUser?.id ? (
+                        <Badge>{ROLE_LABELS[profile.role]}</Badge>
+                      ) : (
+                        <Select
+                          value={profile.role}
+                          onValueChange={(v) => handleRoleChange(profile.id, v)}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="supervisor">Supervisor</SelectItem>
+                            <SelectItem value="promotor">Promotor</SelectItem>
+                            <SelectItem value="vendedor">Vendedor</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {profile.phone || '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center">
+                        <Switch
+                          checked={profile.active}
+                          onCheckedChange={(checked: boolean) => handleActiveChange(profile.id, checked)}
+                          disabled={profile.id === currentUser?.id}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

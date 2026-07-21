@@ -1,52 +1,79 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchMyRequests } from '@/services/requests';
+import { supabase } from '@/lib/supabase';
+import { ROLE_LABELS } from '@/lib/constants';
 import { updateProfile } from '@/services/users';
-import { ROLE_LABELS, ROLE_COLORS } from '@/lib/constants';
-import { RippleButton } from '@/components/RippleButton';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import type { UserRole } from '@/types';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/RippleButton';
+
+function getInitials(name: string): string {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 export function ProfilePage() {
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
-  const [name, setName] = useState(profile?.name ?? '');
-  const [phone, setPhone] = useState(profile?.phone ?? '');
-  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState(profile?.name || '');
+  const [phone, setPhone] = useState(profile?.phone || '');
+  const [loading, setLoading] = useState(false);
 
-  const { data: requests = [] } = useQuery({
-    queryKey: ['my-requests', profile?.id],
-    queryFn: () => fetchMyRequests(profile!.id),
+  const { data: myStats } = useQuery({
+    queryKey: ['my-stats', profile?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('requests')
+        .select('status')
+        .eq('user_id', profile!.id);
+      if (error) throw error;
+      const items = data || [];
+      return {
+        total: items.length,
+        pending: items.filter((r: { status: string }) => r.status === 'pending').length,
+        approved: items.filter((r: { status: string }) => r.status === 'approved').length,
+      };
+    },
     enabled: !!profile && !isAdmin,
   });
 
-  const handleSave = async () => {
-    if (!profile) return;
-    setSaving(true);
-    try {
-      await updateProfile(profile.id, { name, phone: phone || null });
-      toast.success('Perfil atualizado!');
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateProfile>[1] }) =>
+      updateProfile(id, input),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
-    } catch (e) {
-      toast.error((e as Error).message);
+      refreshProfile();
+    },
+    onError: (err: Error) => toast.error('Erro: ' + err.message),
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setLoading(true);
+    try {
+      updateMutation.mutate({ id: profile.id, input: { name, phone: phone || null } });
+      toast.success('Perfil atualizado com sucesso!');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  if (!profile) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-
-  const total = requests.length;
-  const pending = requests.filter((r) => r.status === 'pending').length;
-  const approved = requests.filter((r) => r.status === 'approved').length;
+  if (!profile) return null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -55,58 +82,68 @@ export function ProfilePage() {
         <p className="text-sm text-muted-foreground">Gerencie suas informações</p>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-4">
           <Avatar className="h-20 w-20">
-            <AvatarFallback className="bg-primary text-2xl font-bold text-primary-foreground">
-              {profile.name.charAt(0).toUpperCase()}
+            <AvatarFallback className="bg-primary text-xl text-primary-foreground">
+              {getInitials(profile.name)}
             </AvatarFallback>
           </Avatar>
           <div>
             <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
-            <Badge className={`mt-1 ${ROLE_COLORS[profile.role as UserRole]}`}>
-              {ROLE_LABELS[profile.role as UserRole]}
-            </Badge>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Membro desde {new Date(profile.created_at).toLocaleDateString('pt-BR')}
-            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge>{ROLE_LABELS[profile.role]}</Badge>
+              <span className="text-sm text-muted-foreground">
+                Membro desde {formatDate(profile.created_at)}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Editar informações</h2>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
-          </div>
-          <RippleButton onClick={handleSave} disabled={saving} className="w-full">
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />} Salvar alterações
-          </RippleButton>
-        </div>
-      </div>
-
-      {!isAdmin && (
+      {!isAdmin && myStats && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-border bg-card p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{total}</p>
-            <p className="text-sm text-muted-foreground">Total</p>
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-foreground">{myStats.total}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 text-center">
-            <p className="text-2xl font-bold text-warning">{pending}</p>
-            <p className="text-sm text-muted-foreground">Pendentes</p>
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-warning">{myStats.pending}</p>
+            <p className="text-xs text-muted-foreground">Pendentes</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 text-center">
-            <p className="text-2xl font-bold text-success">{approved}</p>
-            <p className="text-sm text-muted-foreground">Aprovadas</p>
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-success">{myStats.approved}</p>
+            <p className="text-xs text-muted-foreground">Aprovadas</p>
           </div>
         </div>
       )}
+
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground">Editar informações</h2>
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="profile-name">Nome</Label>
+            <Input
+              id="profile-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="profile-phone">Telefone</Label>
+            <Input
+              id="profile-phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(00) 00000-0000"
+            />
+          </div>
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Salvando...' : 'Salvar alterações'}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

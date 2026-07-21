@@ -18,7 +18,7 @@ export function useUnreadNotifications() {
 
       const { count, error } = await query;
       if (error) throw error;
-      return count ?? 0;
+      return count || 0;
     },
     enabled: !!profile,
     refetchInterval: 30_000,

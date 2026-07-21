@@ -1,73 +1,130 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { fetchDashboardStats } from '@/services/dashboard';
-import { fetchMovements } from '@/services/movements';
-import { fetchRequests } from '@/services/requests';
-import { REQUEST_STATUS_LABELS } from '@/lib/constants';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Legend,
+} from 'recharts';
+import { supabase } from '@/lib/supabase';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
-const PERIOD_OPTIONS = [
-  { value: '7', label: '7 dias' },
-  { value: '15', label: '15 dias' },
-  { value: '30', label: '30 dias' },
-  { value: '90', label: '90 dias' },
-];
+interface StockByIndustry {
+  industry: string;
+  stock: number;
+}
 
-const PIE_COLORS: Record<string, string> = {
-  pending: '#f59e0b',
-  approved: '#22c55e',
-  rejected: '#dc2626',
-  fulfilled: '#6b7280',
-};
+interface TopProduct {
+  name: string;
+  count: number;
+}
+
+interface MovementsOverTime {
+  date: string;
+  in: number;
+  out: number;
+}
+
+interface RequestsSummary {
+  pending: number;
+  approved: number;
+  rejected: number;
+  fulfilled: number;
+}
 
 export function ReportsPage() {
   const [period, setPeriod] = useState('30');
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: fetchDashboardStats,
-  });
-
-  const { data: movements = [], isLoading: movementsLoading } = useQuery({
-    queryKey: ['movements'],
-    queryFn: fetchMovements,
-  });
-
-  const { data: requests = [], isLoading: requestsLoading } = useQuery({
-    queryKey: ['requests'],
-    queryFn: fetchRequests,
-  });
-
   const days = parseInt(period, 10);
-  const since = new Date();
-  since.setDate(since.getDate() - days);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
 
-  const periodMovements = movements.filter((m) => new Date(m.created_at) >= since);
+  const { data: stockByIndustry = [] } = useQuery<StockByIndustry[]>({
+    queryKey: ['report-stock-by-industry'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('stock_quantity, industry:industries(name)');
+      if (error) throw error;
+      const map = new Map<string, number>();
+      (data || []).forEach((item: { stock_quantity: number; industry: { name: string }[] | null }) => {
+        const name = item.industry?.[0]?.name || 'Sem indústria';
+        map.set(name, (map.get(name) || 0) + (item.stock_quantity || 0));
+      });
+      return Array.from(map.entries()).map(([industry, stock]) => ({ industry, stock }));
+    },
+  });
 
-  const movementsByDate = new Map<string, number>();
-  for (const m of periodMovements) {
-    const d = new Date(m.created_at).toLocaleDateString('pt-BR');
-    movementsByDate.set(d, (movementsByDate.get(d) ?? 0) + 1);
-  }
-  const movementsOverTime = Array.from(movementsByDate.entries()).map(([date, count]) => ({ date, count }));
+  const { data: topProducts = [] } = useQuery<TopProduct[]>({
+    queryKey: ['report-top-products', period],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('request_items')
+        .select('quantity, product:products(name)')
+        .gte('created_at', startDate.toISOString());
+      if (error) throw error;
+      const map = new Map<string, number>();
+      (data || []).forEach((item: { quantity: number; product: { name: string }[] | null }) => {
+        const name = item.product?.[0]?.name || 'Desconhecido';
+        map.set(name, (map.get(name) || 0) + item.quantity);
+      });
+      return Array.from(map.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+    },
+  });
 
-  const productRequestCount = new Map<string, number>();
-  for (const r of requests) {
-    for (const item of r.request_items ?? []) {
-      const name = item.product?.name ?? 'Desconhecido';
-      productRequestCount.set(name, (productRequestCount.get(name) ?? 0) + 1);
-    }
-  }
-  const topProducts = Array.from(productRequestCount.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+  const { data: movementsOverTime = [] } = useQuery<MovementsOverTime[]>({
+    queryKey: ['report-movements-over-time', period],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('movements')
+        .select('type, quantity, created_at')
+        .gte('created_at', startDate.toISOString());
+      if (error) throw error;
+      const map = new Map<string, MovementsOverTime>();
+      (data || []).forEach((item: { type: string; quantity: number; created_at: string }) => {
+        const date = item.created_at.split('T')[0];
+        const existing = map.get(date) || { date, in: 0, out: 0 };
+        if (item.type === 'in') existing.in += item.quantity;
+        if (item.type === 'out') existing.out += item.quantity;
+        map.set(date, existing);
+      });
+      return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    },
+  });
 
-  if (statsLoading || movementsLoading || requestsLoading) {
-    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  const { data: requestsSummary } = useQuery<RequestsSummary>({
+    queryKey: ['report-requests-summary', period],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('requests')
+        .select('status')
+        .gte('created_at', startDate.toISOString());
+      if (error) throw error;
+      const items = data || [];
+      return {
+        pending: items.filter((r: { status: string }) => r.status === 'pending').length,
+        approved: items.filter((r: { status: string }) => r.status === 'approved').length,
+        rejected: items.filter((r: { status: string }) => r.status === 'rejected').length,
+        fulfilled: items.filter((r: { status: string }) => r.status === 'fulfilled').length,
+      };
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -76,83 +133,104 @@ export function ReportsPage() {
           <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
           <p className="text-sm text-muted-foreground">Análise de dados do sistema</p>
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {PERIOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="period">Período:</Label>
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger id="period" className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">7 dias</SelectItem>
+              <SelectItem value="15">15 dias</SelectItem>
+              <SelectItem value="30">30 dias</SelectItem>
+              <SelectItem value="90">90 dias</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: 'Pendentes', value: requestsSummary?.pending ?? 0, color: 'text-warning' },
+          { label: 'Aprovadas', value: requestsSummary?.approved ?? 0, color: 'text-success' },
+          { label: 'Rejeitadas', value: requestsSummary?.rejected ?? 0, color: 'text-destructive' },
+          { label: 'Atendidas', value: requestsSummary?.fulfilled ?? 0, color: 'text-primary' },
+        ].map((card) => (
+          <div key={card.label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+            <p className="text-xs text-muted-foreground">{card.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-foreground">Estoque por indústria</h2>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={stats?.stockByIndustry ?? []}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="industry" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip />
+          <BarChart data={stockByIndustry}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="industry" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+              }}
+            />
             <Bar dataKey="stock" fill="#dc2626" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Produtos mais solicitados</h2>
-          {topProducts.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Sem dados.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topProducts} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={60} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#dc2626" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Movimentações ao longo do tempo</h2>
-          {movementsOverTime.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Sem dados.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={movementsOverTime}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="#dc2626" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Produtos mais solicitados</h2>
+        {topProducts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum dado no período selecionado</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={topProducts} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={150} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                }}
+              />
+              <Bar dataKey="count" fill="#dc2626" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Resumo de solicitações</h2>
-        <ResponsiveContainer width="100%" height={250}>
-          <PieChart>
-            <Pie
-              data={stats?.requestsByStatus ?? []}
-              dataKey="count"
-              nameKey="status"
-              cx="50%"
-              cy="50%"
-              outerRadius={80}
-              label={(entry: { status: string }) => REQUEST_STATUS_LABELS[entry.status as keyof typeof REQUEST_STATUS_LABELS] ?? entry.status}
-            >
-              {(stats?.requestsByStatus ?? []).map((entry) => (
-                <Cell key={entry.status} fill={PIE_COLORS[entry.status] ?? '#dc2626'} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Movimentações ao longo do tempo</h2>
+        {movementsOverTime.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum dado no período selecionado</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={movementsOverTime}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="in" stroke="#22c55e" name="Entrada" strokeWidth={2} />
+              <Line type="monotone" dataKey="out" stroke="#dc2626" name="Saída" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

@@ -35,13 +35,16 @@ const RippleButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, ...props }, ref) => {
     return (
       <button
-        className={cn(buttonVariants({ variant, size }), className)}
         ref={ref}
+        className={cn(buttonVariants({ variant, size }), className)}
         {...props}
       />
     );
   }
 );
+
 RippleButton.displayName = 'RippleButton';
 
-export { RippleButton, buttonVariants };
+const Button = RippleButton;
+
+export { RippleButton, Button, buttonVariants };

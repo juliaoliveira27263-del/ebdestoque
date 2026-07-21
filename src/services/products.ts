@@ -7,10 +7,12 @@ export async function fetchProducts(): Promise<Product[]> {
     .select('*, category:categories(*), industry:industries(*)')
     .order('name');
   if (error) throw error;
-  return (data ?? []) as Product[];
+  return (data || []) as Product[];
 }
 
-export async function createProduct(input: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>): Promise<Product> {
+export async function createProduct(
+  input: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>
+): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
     .insert(input)
@@ -20,7 +22,10 @@ export async function createProduct(input: Omit<Product, 'id' | 'created_at' | '
   return data as Product;
 }
 
-export async function updateProduct(id: string, input: Partial<Product>): Promise<Product> {
+export async function updateProduct(
+  id: string,
+  input: Partial<Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>>
+): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
     .update(input)
@@ -36,10 +41,14 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function adjustStock(productId: string, newQuantity: number, reason: string): Promise<void> {
+export async function adjustStock(
+  productId: string,
+  quantity: number,
+  reason: string
+): Promise<void> {
   const { error } = await supabase.rpc('adjust_stock', {
     p_product_id: productId,
-    p_new_quantity: newQuantity,
+    p_quantity: quantity,
     p_reason: reason,
   });
   if (error) throw error;

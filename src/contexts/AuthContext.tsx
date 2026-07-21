@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
@@ -35,11 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) {
-      const p = await fetchProfile(session.user.id);
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (currentSession?.user) {
+      const p = await fetchProfile(currentSession.user.id);
       setProfile(p);
+      setSession(currentSession);
     }
-  }, [session, fetchProfile]);
+  }, [fetchProfile]);
 
   useEffect(() => {
     let mounted = true;
@@ -64,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession);
       if (event === 'SIGNED_OUT' || !newSession) {
         setProfile(null);
+        setLoading(false);
         return;
       }
       if (newSession?.user) {
@@ -81,25 +91,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
     if (error) throw error;
   }, []);
 
-  const signUp = useCallback(async (name: string, email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    });
-    if (error) throw error;
-    if (data.user) {
-      await fetchProfile(data.user.id);
-    }
-  }, [fetchProfile]);
+  const signUp = useCallback(
+    async (name: string, email: string, password: string) => {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: { data: { name } },
+      });
+      if (error) throw error;
+      if (data.user) {
+        await fetchProfile(data.user.id);
+      }
+    },
+    [fetchProfile]
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setSession(null);
   }, []);
 
   const value: AuthContextValue = {

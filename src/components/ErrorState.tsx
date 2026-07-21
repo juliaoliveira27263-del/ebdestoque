@@ -1,5 +1,5 @@
 import { AlertCircle } from 'lucide-react';
-import { RippleButton } from '@/components/RippleButton';
+import { Button } from '@/components/RippleButton';
 
 interface ErrorStateProps {
   message?: string;
@@ -8,7 +8,7 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 p-12 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
         <AlertCircle className="h-8 w-8 text-destructive" />
       </div>
@@ -17,9 +17,9 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
         {message || 'Ocorreu um erro ao carregar os dados. Tente novamente.'}
       </p>
       {onRetry && (
-        <RippleButton variant="destructive" className="mt-4" onClick={onRetry}>
+        <Button variant="destructive" className="mt-4" onClick={onRetry}>
           Tentar novamente
-        </RippleButton>
+        </Button>
       )}
     </div>
   );
