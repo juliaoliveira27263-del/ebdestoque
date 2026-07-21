@@ -7,7 +7,7 @@ export async function fetchIndustries(): Promise<Industry[]> {
     .select('*')
     .order('name');
   if (error) throw error;
-  return (data || []) as Industry[];
+  return (data ?? []) as Industry[];
 }
 
 export async function createIndustry(

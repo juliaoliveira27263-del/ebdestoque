@@ -7,7 +7,7 @@ export async function fetchProducts(): Promise<Product[]> {
     .select('*, category:categories(*), industry:industries(*)')
     .order('name');
   if (error) throw error;
-  return (data || []) as Product[];
+  return (data ?? []) as Product[];
 }
 
 export async function createProduct(

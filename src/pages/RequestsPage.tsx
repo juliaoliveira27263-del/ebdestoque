@@ -2,30 +2,34 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search,
-  ChevronDown,
-  ChevronRight,
+  Loader2,
+  ClipboardList,
   Check,
   X,
+  ChevronDown,
+  ChevronUp,
   Trash2,
-  ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { fetchRequests, fetchMyRequests, approveRequest, rejectRequest, deleteRequest } from '@/services/requests';
-import type { StockRequest } from '@/types';
-import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/RippleButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/RippleButton';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -34,80 +38,85 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogAction,
   AlertDialogCancel,
+  AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  fetchRequests,
+  fetchMyRequests,
+  approveRequest,
+  rejectRequest,
+  deleteRequest,
+} from '@/services/requests';
+import {
+  REQUEST_STATUS_LABELS,
+  REQUEST_STATUS_COLORS,
+} from '@/lib/constants';
+import { cn } from '@/lib/utils';
+import type { StockRequest, RequestStatus } from '@/types';
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export function RequestsPage() {
+export default function RequestsPage() {
   const { profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [rejectRequest_, setRejectRequest_] = useState<StockRequest | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<StockRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data: requests = [], isLoading } = useQuery<StockRequest[]>({
-    queryKey: isAdmin ? ['requests'] : ['my-requests', profile?.id],
-    queryFn: () => (isAdmin ? fetchRequests() : fetchMyRequests(profile!.id)),
+  const { data: requests = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['requests', profile?.id, isAdmin],
+    queryFn: () =>
+      isAdmin && profile ? fetchRequests() : profile ? fetchMyRequests(profile.id) : Promise.resolve([]),
     enabled: !!profile,
+  });
+
+  const filtered = requests.filter((r) => {
+    const matchSearch =
+      r.profile?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      r.notes?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === 'all' || r.status === statusFilter;
+    return matchSearch && matchStatus;
   });
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveRequest(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['my-requests'] });
       toast.success('Solicitação aprovada!');
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
-    onError: (err: Error) => toast.error('Erro: ' + err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => rejectRequest(id, reason),
+    mutationFn: () => {
+      if (!rejectTarget) throw new Error('Nenhuma solicitação selecionada.');
+      return rejectRequest(rejectTarget.id, rejectReason);
+    },
     onSuccess: () => {
+      toast.success('Solicitação rejeitada.');
       queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['my-requests'] });
-      toast.success('Solicitação rejeitada');
-      setRejectRequest_(null);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setRejectTarget(null);
       setRejectReason('');
     },
-    onError: (err: Error) => toast.error('Erro: ' + err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteRequest(id),
     onSuccess: () => {
+      toast.success('Solicitação excluída.');
       queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['my-requests'] });
-      toast.success('Solicitação excluída!');
+      queryClient.invalidateQueries({ queryKey: ['my-request-stats'] });
       setDeleteId(null);
     },
-    onError: (err: Error) => toast.error('Erro: ' + err.message),
-  });
-
-  const filtered = requests.filter((r) => {
-    const matchSearch = r.profile?.name?.toLowerCase().includes(search.toLowerCase()) || search === '';
-    const matchStatus = statusFilter === 'all' || r.status === statusFilter;
-    return matchSearch && matchStatus;
+    onError: (err: Error) => toast.error(err.message),
   });
 
   return (
@@ -115,7 +124,7 @@ export function RequestsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Solicitações</h1>
         <p className="text-sm text-muted-foreground">
-          {isAdmin ? 'Gerencie todas as solicitações' : 'Suas solicitações de produtos'}
+          {isAdmin ? 'Gerencie todas as solicitações.' : 'Acompanhe suas solicitações.'}
         </p>
       </div>
 
@@ -123,169 +132,159 @@ export function RequestsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por usuário..."
+            placeholder="Buscar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="sm:w-48">
-            <SelectValue placeholder="Filtrar por status" />
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="pending">Pendentes</SelectItem>
-            <SelectItem value="approved">Aprovadas</SelectItem>
-            <SelectItem value="rejected">Rejeitadas</SelectItem>
-            <SelectItem value="fulfilled">Atendidas</SelectItem>
+            {(Object.keys(REQUEST_STATUS_LABELS) as RequestStatus[]).map((s) => (
+              <SelectItem key={s} value={s}>
+                {REQUEST_STATUS_LABELS[s]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
-          ))}
+      {isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : isLoading ? (
+        <div className="flex h-40 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-8 text-center">
-          <ClipboardList className="mb-4 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Nenhuma solicitação encontrada</p>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title="Nenhuma solicitação"
+          description="Não há solicitações para exibir."
+        />
       ) : (
         <div className="space-y-2">
-          {filtered.map((request) => (
-            <div key={request.id} className="rounded-2xl border border-border bg-card shadow-sm">
-              <button
-                onClick={() => setExpandedId(expandedId === request.id ? null : request.id)}
-                className="flex w-full items-center gap-4 p-4 text-left"
+          {filtered.map((r) => {
+            const isOpen = expanded === r.id;
+            return (
+              <div
+                key={r.id}
+                className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
               >
-                {expandedId === request.id ? (
-                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-                )}
-                <div className="flex-1">
+                <button
+                  onClick={() => setExpanded(isOpen ? null : r.id)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {isAdmin ? r.profile?.name ?? 'Usuário' : `Solicitação`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {r.total_items} item(s) — {new Date(r.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">
-                      {request.profile?.name || 'Usuário'}
-                    </span>
-                    <Badge className={cn('border-0', REQUEST_STATUS_COLORS[request.status])}>
-                      {REQUEST_STATUS_LABELS[request.status]}
+                    <Badge className={cn(REQUEST_STATUS_COLORS[r.status])}>
+                      {REQUEST_STATUS_LABELS[r.status]}
                     </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {request.total_items} itens • {formatDate(request.created_at)}
-                  </p>
-                </div>
-                {request.status === 'pending' && (
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    {isAdmin && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-success hover:bg-success/10"
-                          onClick={() => approveMutation.mutate(request.id)}
-                          title="Aprovar"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => setRejectRequest_(request)}
-                          title="Rejeitar"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {!isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => setDeleteId(request.id)}
-                        title="Cancelar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    {isOpen ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     )}
                   </div>
-                )}
-                {(isAdmin || request.status !== 'pending') && (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:bg-destructive/10"
-                      onClick={() => setDeleteId(request.id)}
-                      title="Excluir"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </button>
+                </button>
 
-              {expandedId === request.id && (
-                <div className="border-t border-border p-4">
-                  {request.notes && (
-                    <p className="mb-3 text-sm text-muted-foreground">
-                      <span className="font-medium">Observações:</span> {request.notes}
-                    </p>
-                  )}
-                  <div className="space-y-1">
-                    {request.request_items?.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm"
-                      >
-                        <span className="font-medium text-foreground">
-                          {item.product?.name || 'Produto'}
-                        </span>
+                {isOpen && (
+                  <div className="border-t border-border px-4 py-3 space-y-3">
+                    {r.request_items?.map((item) => (
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-foreground">{item.product?.name ?? 'Produto'}</span>
                         <span className="text-muted-foreground">
-                          {item.quantity} {item.product?.unit || ''}
+                          {item.quantity} un. {item.industry?.name ? `(${item.industry.name})` : ''}
                         </span>
                       </div>
                     ))}
+                    {r.notes && (
+                      <p className="text-sm text-muted-foreground border-t border-border pt-2">
+                        {r.notes}
+                      </p>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      {isAdmin && r.status === 'pending' && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => approveMutation.mutate(r.id)}
+                            disabled={approveMutation.isPending}
+                          >
+                            <Check className="h-4 w-4" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setRejectTarget(r)}
+                          >
+                            <X className="h-4 w-4" />
+                            Rejeitar
+                          </Button>
+                        </>
+                      )}
+                      {!isAdmin && r.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setDeleteId(r.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Cancelar
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteId(r.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Excluir
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <Dialog open={!!rejectRequest_} onOpenChange={(o) => !o && setRejectRequest_(null)}>
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rejeitar solicitação</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="reason">Motivo da rejeição</Label>
+            <Label htmlFor="reject-reason">Motivo</Label>
             <Textarea
-              id="reason"
-              placeholder="Informe o motivo..."
+              id="reject-reason"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Motivo da rejeição..."
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectRequest_(null)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() =>
-                rejectRequest_ &&
-                rejectMutation.mutate({ id: rejectRequest_.id, reason: rejectReason })
-              }
-            >
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={() => rejectMutation.mutate()} disabled={rejectMutation.isPending}>
+              {rejectMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Rejeitar
             </Button>
           </DialogFooter>
@@ -296,9 +295,7 @@ export function RequestsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir solicitação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A solicitação será permanentemente excluída.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>

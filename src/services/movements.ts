@@ -7,5 +7,5 @@ export async function fetchMovements(): Promise<Movement[]> {
     .select('*, product:products(*), profile:profiles(*)')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as Movement[];
+  return (data ?? []) as Movement[];
 }

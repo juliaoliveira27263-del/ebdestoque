@@ -1,18 +1,18 @@
 import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/types';
+import type { Profile, UserRole } from '@/types';
 
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .order('name');
+    .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as Profile[];
+  return (data ?? []) as Profile[];
 }
 
 export async function updateProfile(
   id: string,
-  input: Partial<Pick<Profile, 'name' | 'phone' | 'role' | 'active'>>
+  input: Partial<Pick<Profile, 'name' | 'role' | 'phone' | 'active'>>
 ): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
@@ -23,3 +23,5 @@ export async function updateProfile(
   if (error) throw error;
   return data as Profile;
 }
+
+export type { UserRole };

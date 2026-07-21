@@ -1,22 +1,23 @@
-import * as React from 'react';
+import type { ComponentType } from 'react';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   title: string;
   description: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-8 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <Icon className="h-8 w-8 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card p-8 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+        <Icon className={cn('h-7 w-7 text-muted-foreground')} />
       </div>
-      <h3 className={cn('text-lg font-semibold text-foreground')}>{title}</h3>
+      <h3 className="mt-4 text-base font-semibold text-foreground">{title}</h3>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action && <div className="mt-4">{action}</div>}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }

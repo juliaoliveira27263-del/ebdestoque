@@ -9,7 +9,7 @@ export async function fetchRequests(): Promise<StockRequest[]> {
     )
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as StockRequest[];
+  return (data ?? []) as StockRequest[];
 }
 
 export async function fetchMyRequests(userId: string): Promise<StockRequest[]> {
@@ -21,7 +21,7 @@ export async function fetchMyRequests(userId: string): Promise<StockRequest[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as StockRequest[];
+  return (data ?? []) as StockRequest[];
 }
 
 export async function createRequestWithItems(

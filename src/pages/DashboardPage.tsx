@@ -1,5 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { Package, AlertTriangle, Clock, Building2, Users, ArrowLeftRight } from 'lucide-react';
+import {
+  Package,
+  AlertTriangle,
+  ClipboardList,
+  Factory,
+  Loader2,
+  TrendingUp,
+} from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -17,116 +24,123 @@ import { fetchDashboardStats } from '@/services/dashboard';
 import { REQUEST_STATUS_LABELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
-const PIE_COLORS = ['#dc2626', '#22c55e', '#f59e0b', '#94a3b8'];
+const PIE_COLORS: Record<string, string> = {
+  pending: '#f59e0b',
+  approved: '#22c55e',
+  rejected: '#dc2626',
+  fulfilled: '#a3a3a3',
+};
 
-export function DashboardPage() {
-  const { data: stats, isLoading } = useQuery({
+export default function DashboardPage() {
+  const { data, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
   });
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
-          ))}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="h-80 animate-pulse rounded-2xl bg-muted" />
-          <div className="h-80 animate-pulse rounded-2xl bg-muted" />
-        </div>
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!stats) return null;
+  const stats = data!;
 
-  const statCards = [
+  const cards = [
     { label: 'Produtos', value: stats.totalProducts, icon: Package, color: 'text-primary' },
     { label: 'Estoque baixo', value: stats.lowStockCount, icon: AlertTriangle, color: 'text-warning' },
-    { label: 'Solicitações pendentes', value: stats.pendingRequests, icon: Clock, color: 'text-primary' },
-    { label: 'Indústrias', value: stats.totalIndustries, icon: Building2, color: 'text-primary' },
-    { label: 'Usuários', value: stats.totalUsers, icon: Users, color: 'text-primary' },
-    { label: 'Movimentações', value: stats.totalMovements, icon: ArrowLeftRight, color: 'text-primary' },
+    { label: 'Solicitações pendentes', value: stats.pendingRequests, icon: ClipboardList, color: 'text-primary' },
+    { label: 'Indústrias', value: stats.totalIndustries, icon: Factory, color: 'text-foreground' },
   ];
+
+  const pieData = stats.requestsByStatus.map((s) => ({
+    name: REQUEST_STATUS_LABELS[s.status as keyof typeof REQUEST_STATUS_LABELS] ?? s.status,
+    value: s.count,
+    status: s.status,
+  }));
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão geral do sistema</p>
+        <p className="text-sm text-muted-foreground">Visão geral do sistema.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        {statCards.map((card) => {
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-              <div className="mb-2 flex items-center justify-between">
+            <div
+              key={card.label}
+              className="rounded-xl border border-border bg-card p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between">
                 <Icon className={cn('h-5 w-5', card.color)} />
+                <span className="text-2xl font-bold text-foreground">{card.value}</span>
               </div>
-              <p className="text-2xl font-bold text-foreground">{card.value}</p>
-              <p className="text-xs text-muted-foreground">{card.label}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{card.label}</p>
             </div>
           );
         })}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Estoque por indústria</h2>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <h2 className="text-base font-semibold text-foreground">Estoque por indústria</h2>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stats.stockByIndustry}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="industry" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="industry" tick={{ fontSize: 12 }} className="text-muted-foreground" />
+              <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
+                  borderRadius: '0.75rem',
                   border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
+                  background: 'hsl(var(--card))',
                 }}
               />
-              <Bar dataKey="stock" fill="#dc2626" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="stock" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Solicitações por status</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={stats.requestsByStatus.map((s) => ({
-                  ...s,
-                  name: REQUEST_STATUS_LABELS[s.status as keyof typeof REQUEST_STATUS_LABELS] || s.status,
-                }))}
-                dataKey="count"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={(entry: { name: string; count: number }) => `${entry.name}: ${entry.count}`}
-              >
-                {stats.requestsByStatus.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                }}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-foreground">
+            Solicitações por status
+          </h2>
+          {pieData.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem dados.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {pieData.map((entry) => (
+                    <Cell key={entry.status} fill={PIE_COLORS[entry.status] ?? '#dc2626'} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '0.75rem',
+                    border: '1px solid hsl(var(--border))',
+                    background: 'hsl(var(--card))',
+                  }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

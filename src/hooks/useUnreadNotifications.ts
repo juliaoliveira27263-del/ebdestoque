@@ -12,13 +12,18 @@ export function useUnreadNotifications() {
 
       if (isAdmin) {
         query = query.or('user_id.is.null,read.eq.false');
+      } else if (profile) {
+        query = query.eq('user_id', profile.id).eq('read', false);
       } else {
-        query = query.eq('user_id', profile!.id).eq('read', false);
+        return 0;
       }
 
       const { count, error } = await query;
-      if (error) throw error;
-      return count || 0;
+      if (error) {
+        console.error('Error fetching unread notifications:', error.message);
+        return 0;
+      }
+      return count ?? 0;
     },
     enabled: !!profile,
     refetchInterval: 30_000,

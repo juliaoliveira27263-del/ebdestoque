@@ -123,7 +123,6 @@ export default defineConfig({
             '@radix-ui/react-alert-dialog',
             '@radix-ui/react-avatar',
             '@radix-ui/react-dialog',
-            '@radix-ui/react-popover',
             '@radix-ui/react-progress',
             '@radix-ui/react-scroll-area',
             '@radix-ui/react-select',

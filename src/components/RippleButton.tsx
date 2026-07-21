@@ -8,8 +8,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
-        outline: 'border border-border bg-card text-foreground shadow-sm hover:bg-muted',
+        destructive:
+          'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
+        outline:
+          'border border-border bg-card text-foreground shadow-sm hover:bg-muted',
         ghost: 'text-foreground hover:bg-muted',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
       },
@@ -35,16 +37,14 @@ const RippleButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, ...props }, ref) => {
     return (
       <button
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        className={cn(buttonVariants({ variant, size }), className)}
         {...props}
       />
     );
   }
 );
-
 RippleButton.displayName = 'RippleButton';
 
-const Button = RippleButton;
-
-export { RippleButton, Button, buttonVariants };
+export { RippleButton, buttonVariants };
+export { RippleButton as Button };

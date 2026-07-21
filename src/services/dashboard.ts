@@ -3,62 +3,59 @@ import type { DashboardStats } from '@/types';
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
   const [
-    { count: totalProducts },
-    { count: totalIndustries },
-    { count: totalUsers },
-    { count: totalMovements },
+    productsRes,
+    lowStockRes,
+    pendingRes,
+    industriesRes,
+    usersRes,
+    movementsRes,
+    stockByIndustryRes,
+    requestsByStatusRes,
   ] = await Promise.all([
-    supabase.from('products').select('*', { count: 'exact', head: true }),
-    supabase.from('industries').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('movements').select('*', { count: 'exact', head: true }),
+    supabase.from('products').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .filter('stock_quantity', 'lt', 'min_stock'),
+    supabase
+      .from('requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending'),
+    supabase.from('industries').select('id', { count: 'exact', head: true }),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('movements').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('products')
+      .select('stock_quantity, industry:industries(name)'),
+    supabase.from('requests').select('status'),
   ]);
 
-  const { count: lowStockCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .filter('stock_quantity', 'lt', 'min_stock');
-
-  const { count: pendingRequests } = await supabase
-    .from('requests')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'pending');
-
-  const { data: stockData } = await supabase
-    .from('products')
-    .select('stock_quantity, industry:industries(name)');
-
   const industryMap = new Map<string, number>();
-  (stockData || []).forEach((item: { stock_quantity: number; industry: { name: string }[] | null }) => {
-    const name = item.industry?.[0]?.name || 'Sem indústria';
-    industryMap.set(name, (industryMap.get(name) || 0) + (item.stock_quantity || 0));
-  });
-  const stockByIndustry = Array.from(industryMap.entries()).map(([industry, stock]) => ({
-    industry,
-    stock,
-  }));
-
-  const { data: requestsData } = await supabase
-    .from('requests')
-    .select('status');
+  for (const row of stockByIndustryRes.data ?? []) {
+    const name = (row.industry as { name?: string } | null)?.name ?? 'Sem indústria';
+    industryMap.set(name, (industryMap.get(name) ?? 0) + (row.stock_quantity ?? 0));
+  }
 
   const statusMap = new Map<string, number>();
-  (requestsData || []).forEach((item: { status: string }) => {
-    statusMap.set(item.status, (statusMap.get(item.status) || 0) + 1);
-  });
-  const requestsByStatus = Array.from(statusMap.entries()).map(([status, count]) => ({
-    status,
-    count,
-  }));
+  for (const row of requestsByStatusRes.data ?? []) {
+    const status = (row as { status: string }).status;
+    statusMap.set(status, (statusMap.get(status) ?? 0) + 1);
+  }
 
   return {
-    totalProducts: totalProducts || 0,
-    lowStockCount: lowStockCount || 0,
-    pendingRequests: pendingRequests || 0,
-    totalIndustries: totalIndustries || 0,
-    totalUsers: totalUsers || 0,
-    totalMovements: totalMovements || 0,
-    stockByIndustry,
-    requestsByStatus,
+    totalProducts: productsRes.count ?? 0,
+    lowStockCount: lowStockRes.count ?? 0,
+    pendingRequests: pendingRes.count ?? 0,
+    totalIndustries: industriesRes.count ?? 0,
+    totalUsers: usersRes.count ?? 0,
+    totalMovements: movementsRes.count ?? 0,
+    stockByIndustry: Array.from(industryMap.entries()).map(([industry, stock]) => ({
+      industry,
+      stock,
+    })),
+    requestsByStatus: Array.from(statusMap.entries()).map(([status, count]) => ({
+      status,
+      count,
+    })),
   };
 }

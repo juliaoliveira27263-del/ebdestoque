@@ -1,17 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Trash2, Loader2, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchProducts } from '@/services/products';
-import { fetchIndustries } from '@/services/industries';
-import { createRequestWithItems } from '@/services/requests';
-import type { Product, Industry } from '@/types';
+import { Button } from '@/components/RippleButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/RippleButton';
 import {
   Select,
   SelectContent,
@@ -19,125 +16,137 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { createRequestWithItems } from '@/services/requests';
+import type { Product, Industry } from '@/types';
 
-interface CartItem {
+interface RequestItemDraft {
   product_id: string;
-  product_name: string;
   quantity: number;
   industry_id: string | null;
 }
 
-export function NewRequestPage() {
+export default function NewRequestPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [selectedIndustry, setSelectedIndustry] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const { data: products = [] } = useQuery<Product[]>({
+  const [items, setItems] = useState<RequestItemDraft[]>([]);
+  const [productId, setProductId] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [industryId, setIndustryId] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const { data: products = [] } = useQuery({
     queryKey: ['products'],
-    queryFn: fetchProducts,
+    queryFn: async (): Promise<Product[]> => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, industry:industries(*)')
+        .eq('active', true)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as Product[];
+    },
   });
 
-  const { data: industries = [] } = useQuery<Industry[]>({
+  const { data: industries = [] } = useQuery({
     queryKey: ['industries'],
-    queryFn: fetchIndustries,
+    queryFn: async (): Promise<Industry[]> => {
+      const { data, error } = await supabase
+        .from('industries')
+        .select('*')
+        .eq('active', true)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as Industry[];
+    },
   });
 
   const addItem = () => {
-    const product = products.find((p) => p.id === selectedProduct);
-    if (!product) {
-      toast.error('Selecione um produto');
+    if (!productId) {
+      toast.error('Selecione um produto.');
       return;
     }
     const qty = parseInt(quantity, 10);
     if (!qty || qty < 1) {
-      toast.error('Quantidade inválida');
+      toast.error('Quantidade inválida.');
       return;
     }
-    if (items.some((i) => i.product_id === selectedProduct)) {
-      toast.error('Produto já adicionado');
+    if (items.some((i) => i.product_id === productId)) {
+      toast.error('Produto já adicionado.');
       return;
     }
-    setItems([
-      ...items,
-      {
-        product_id: selectedProduct,
-        product_name: product.name,
-        quantity: qty,
-        industry_id: selectedIndustry || null,
-      },
+    setItems((prev) => [
+      ...prev,
+      { product_id: productId, quantity: qty, industry_id: industryId || null },
     ]);
-    setSelectedProduct('');
-    setSelectedIndustry('');
+    setProductId('');
     setQuantity('1');
+    setIndustryId('');
   };
 
-  const removeItem = (productId: string) => {
-    setItems(items.filter((i) => i.product_id !== productId));
+  const removeItem = (idx: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSubmit = async () => {
-    if (items.length === 0) {
-      toast.error('Adicione pelo menos um item');
-      return;
-    }
-    setLoading(true);
-    try {
-      await createRequestWithItems(
-        profile!.id,
-        items.map((i) => ({
-          product_id: i.product_id,
-          quantity: i.quantity,
-          industry_id: i.industry_id,
-        })),
-        notes || null
-      );
-      await queryClient.invalidateQueries({ queryKey: ['requests'] });
-      await queryClient.invalidateQueries({ queryKey: ['my-requests'] });
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!profile) throw new Error('Usuário não autenticado');
+      if (items.length === 0) throw new Error('Adicione ao menos um item.');
+      return createRequestWithItems(profile.id, items, notes || null);
+    },
+    onSuccess: () => {
       toast.success('Solicitação criada com sucesso!');
+      queryClient.invalidateQueries({ queryKey: ['requests'] });
+      queryClient.invalidateQueries({ queryKey: ['my-request-stats'] });
       navigate('/requests');
-    } catch (err) {
-      toast.error('Erro ao criar solicitação: ' + (err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const productName = (id: string) => products.find((p) => p.id === id)?.name ?? '—';
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Nova Solicitação</h1>
-        <p className="text-sm text-muted-foreground">Selecione os produtos que deseja solicitar</p>
+        <p className="text-sm text-muted-foreground">Adicione produtos à sua solicitação.</p>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">Adicionar produto</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+        <div className="grid gap-4 md:grid-cols-[1fr_auto_auto_auto]">
           <div className="space-y-2">
-            <Label htmlFor="product">Produto</Label>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-              <SelectTrigger id="product">
-                <SelectValue placeholder="Selecione um produto" />
+            <Label>Produto</Label>
+            <Select value={productId} onValueChange={setProductId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
                 {products.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.stock_quantity} {p.unit})
+                    {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="industry">Indústria (opcional)</Label>
-            <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-              <SelectTrigger id="industry">
-                <SelectValue placeholder="Selecione uma indústria" />
+            <Label>Qtd.</Label>
+            <Input
+              type="number"
+              min={1}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-20"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Indústria</Label>
+            <Select value={industryId} onValueChange={setIndustryId}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Opcional" />
               </SelectTrigger>
               <SelectContent>
                 {industries.map((i) => (
@@ -148,84 +157,58 @@ export function NewRequestPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Quantidade</Label>
-            <Input
-              id="quantity"
-              type="number"
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-          </div>
           <div className="flex items-end">
-            <Button type="button" className="w-full" onClick={addItem}>
+            <Button type="button" size="icon" onClick={addItem}>
               <Plus className="h-4 w-4" />
-              Adicionar
             </Button>
           </div>
         </div>
-      </div>
 
-      {items.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground">Itens da solicitação</h2>
-          <div className="mt-4 space-y-2">
-            {items.map((item) => (
+        {items.length > 0 && (
+          <div className="space-y-2">
+            {items.map((item, idx) => (
               <div
-                key={item.product_id}
-                className="flex items-center justify-between rounded-lg bg-muted px-4 py-3"
+                key={idx}
+                className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
               >
-                <div>
-                  <p className="text-sm font-medium text-foreground">{item.product_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Quantidade: {item.quantity}
-                    {item.industry_id &&
-                      ` | Indústria: ${industries.find((i) => i.id === item.industry_id)?.name || '-'}`}
-                  </p>
+                <div className="text-sm">
+                  <span className="font-medium text-foreground">
+                    {productName(item.product_id)}
+                  </span>
+                  <span className="text-muted-foreground"> — {item.quantity} un.</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeItem(item.product_id)}
-                  className="text-destructive hover:bg-destructive/10"
+                <button
+                  onClick={() => removeItem(idx)}
+                  className="rounded-lg p-1 text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <div className="space-y-2">
           <Label htmlFor="notes">Observações</Label>
           <Textarea
             id="notes"
-            placeholder="Adicione observações sobre a solicitação..."
+            placeholder="Notas adicionais..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
-      </div>
 
-      <div className="flex gap-3">
-        <Button onClick={handleSubmit} disabled={loading || items.length === 0} className="flex-1">
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Enviando...
-            </>
+        <Button
+          className="w-full"
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <>
-              <ShoppingCart className="h-4 w-4" />
-              Enviar solicitação
-            </>
+            <ShoppingCart className="h-4 w-4" />
           )}
-        </Button>
-        <Button variant="outline" onClick={() => navigate('/requests')}>
-          Cancelar
+          Enviar solicitação
         </Button>
       </div>
     </div>

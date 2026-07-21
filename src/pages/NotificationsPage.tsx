@@ -1,47 +1,40 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Check, CheckCheck, Package, AlertTriangle, Info } from 'lucide-react';
+import {
+  Bell,
+  CheckCheck,
+  Loader2,
+  Package,
+  ClipboardList,
+  AlertTriangle,
+  Info,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/RippleButton';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/services/notifications';
-import type { Notification } from '@/types';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/RippleButton';
-import { Badge } from '@/components/ui/badge';
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+const ICONS: Record<string, typeof Package> = {
+  product: Package,
+  request: ClipboardList,
+  alert: AlertTriangle,
+  info: Info,
+};
 
-function getNotificationIcon(type: string): React.ComponentType<{ className?: string }> {
-  switch (type) {
-    case 'low_stock':
-      return AlertTriangle;
-    case 'request':
-      return Package;
-    case 'info':
-      return Info;
-    default:
-      return Bell;
-  }
-}
-
-export function NotificationsPage() {
+export default function NotificationsPage() {
   const { profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-    queryKey: ['notifications', profile?.id],
-    queryFn: () => fetchNotifications(profile!.id, isAdmin),
+  const { data: notifications = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['notifications', profile?.id, isAdmin],
+    queryFn: () => (profile ? fetchNotifications(profile.id, isAdmin) : Promise.resolve([])),
     enabled: !!profile,
   });
 
@@ -51,91 +44,86 @@ export function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-notifications'] });
     },
-    onError: (err: Error) => toast.error('Erro: ' + err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const markAllMutation = useMutation({
-    mutationFn: () => markAllNotificationsRead(profile!.id, isAdmin),
+    mutationFn: () => (profile ? markAllNotificationsRead(profile.id) : Promise.resolve()),
     onSuccess: () => {
+      toast.success('Todas as notificações marcadas como lidas.');
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-notifications'] });
-      toast.success('Todas as notificações marcadas como lidas!');
     },
-    onError: (err: Error) => toast.error('Erro: ' + err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
-
-  const hasUnread = notifications.some((n) => !n.read);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Notificações</h1>
-          <p className="text-sm text-muted-foreground">Suas notificações do sistema</p>
+          <p className="text-sm text-muted-foreground">Suas notificações recentes.</p>
         </div>
-        {hasUnread && (
-          <Button variant="outline" onClick={() => markAllMutation.mutate()}>
+        {notifications.some((n) => !n.read) && (
+          <Button variant="outline" onClick={() => markAllMutation.mutate()} disabled={markAllMutation.isPending}>
             <CheckCheck className="h-4 w-4" />
             Marcar todas como lidas
           </Button>
         )}
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />
-          ))}
+      {isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : isLoading ? (
+        <div className="flex h-40 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-8 text-center">
-          <Bell className="mb-4 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Nenhuma notificação</p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title="Nenhuma notificação"
+          description="Você está em dia com tudo."
+        />
       ) : (
         <div className="space-y-2">
-          {notifications.map((notification) => {
-            const Icon = getNotificationIcon(notification.type);
+          {notifications.map((n) => {
+            const Icon = ICONS[n.type] ?? Info;
             return (
               <div
-                key={notification.id}
+                key={n.id}
                 className={cn(
-                  'flex items-start gap-4 rounded-2xl border bg-card p-4 shadow-sm transition-colors',
-                  notification.read ? 'border-border' : 'border-primary/30 bg-primary/5'
+                  'flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors',
+                  !n.read && 'border-primary/30 bg-primary/5'
                 )}
               >
                 <div
                   className={cn(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-                    notification.read ? 'bg-muted' : 'bg-primary/10'
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                    n.read ? 'bg-muted' : 'bg-primary/10'
                   )}
                 >
-                  <Icon className={cn('h-5 w-5', notification.read ? 'text-muted-foreground' : 'text-primary')} />
+                  <Icon className={cn('h-4 w-4', n.read ? 'text-muted-foreground' : 'text-primary')} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">{notification.title}</h3>
-                    {!notification.read && (
-                      <Badge variant="default" className="text-xs">
-                        Nova
-                      </Badge>
-                    )}
+                    <p className="text-sm font-medium text-foreground">{n.title}</p>
+                    {!n.read && <Badge variant="default">Nova</Badge>}
                   </div>
-                  {notification.message && (
-                    <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
+                  {n.message && (
+                    <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
                   )}
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {formatDate(notification.created_at)}
+                    {new Date(n.created_at).toLocaleString('pt-BR')}
                   </p>
                 </div>
-                {!notification.read && (
+                {!n.read && (
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => markReadMutation.mutate(notification.id)}
-                    title="Marcar como lida"
+                    size="sm"
+                    onClick={() => markReadMutation.mutate(n.id)}
+                    disabled={markReadMutation.isPending}
                   >
-                    <Check className="h-4 w-4" />
+                    Marcar lida
                   </Button>
                 )}
               </div>

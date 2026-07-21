@@ -1,133 +1,83 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { ROLE_LABELS } from '@/lib/constants';
-import { updateProfile } from '@/services/users';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/RippleButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/RippleButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { updateProfile } from '@/services/users';
+import { ROLE_LABELS, ROLE_COLORS } from '@/lib/constants';
+import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 
-function getInitials(name: string): string {
-  if (!name) return '?';
-  const parts = name.trim().split(' ');
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-export function ProfilePage() {
+export default function ProfilePage() {
   const { profile, isAdmin, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
-  const [name, setName] = useState(profile?.name || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState(profile?.name ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
 
-  const { data: myStats } = useQuery({
-    queryKey: ['my-stats', profile?.id],
+  const { data: stats } = useQuery({
+    queryKey: ['my-request-stats', profile?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { count: total } = await supabase
         .from('requests')
-        .select('status')
+        .select('id', { count: 'exact', head: true })
         .eq('user_id', profile!.id);
-      if (error) throw error;
-      const items = data || [];
-      return {
-        total: items.length,
-        pending: items.filter((r: { status: string }) => r.status === 'pending').length,
-        approved: items.filter((r: { status: string }) => r.status === 'approved').length,
-      };
+      return { total: total ?? 0 };
     },
     enabled: !!profile && !isAdmin,
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateProfile>[1] }) =>
-      updateProfile(id, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      refreshProfile();
+    mutationFn: () => {
+      if (!profile) throw new Error('Sem perfil');
+      return updateProfile(profile.id, { name, phone: phone || null });
     },
-    onError: (err: Error) => toast.error('Erro: ' + err.message),
+    onSuccess: () => {
+      toast.success('Perfil atualizado!');
+      refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-    setLoading(true);
-    try {
-      updateMutation.mutate({ id: profile.id, input: { name, phone: phone || null } });
-      toast.success('Perfil atualizado com sucesso!');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!profile) return null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
-        <p className="text-sm text-muted-foreground">Gerencie suas informações</p>
-      </div>
+      <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarFallback className="bg-primary text-xl text-primary-foreground">
-              {getInitials(profile.name)}
+          <Avatar className="h-16 w-16">
+            <AvatarFallback className="bg-primary text-xl font-bold text-primary-foreground">
+              {profile.name?.charAt(0).toUpperCase() ?? '?'}
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
-            <div className="mt-1 flex items-center gap-2">
-              <Badge>{ROLE_LABELS[profile.role]}</Badge>
-              <span className="text-sm text-muted-foreground">
-                Membro desde {formatDate(profile.created_at)}
-              </span>
-            </div>
+            <h2 className="text-lg font-semibold text-foreground">{profile.name}</h2>
+            <Badge className={cn(ROLE_COLORS[profile.role], 'mt-1')}>
+              {ROLE_LABELS[profile.role]}
+            </Badge>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Membro desde {new Date(profile.created_at).toLocaleDateString('pt-BR')}
+            </p>
           </div>
         </div>
       </div>
 
-      {!isAdmin && myStats && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-foreground">{myStats.total}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-warning">{myStats.pending}</p>
-            <p className="text-xs text-muted-foreground">Pendentes</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
-            <p className="text-2xl font-bold text-success">{myStats.approved}</p>
-            <p className="text-xs text-muted-foreground">Aprovadas</p>
-          </div>
-        </div>
-      )}
-
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">Editar informações</h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <h3 className="mb-4 text-base font-semibold text-foreground">Editar dados</h3>
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="profile-name">Nome</Label>
             <Input
               id="profile-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
             />
           </div>
           <div className="space-y-2">
@@ -136,14 +86,32 @@ export function ProfilePage() {
               id="profile-phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="(00) 00000-0000"
+              placeholder="(00) 0000-0000"
             />
           </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar alterações'}
+          <Button
+            className="w-full"
+            onClick={() => updateMutation.mutate()}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Salvar alterações
           </Button>
-        </form>
+        </div>
       </div>
+
+      {!isAdmin && stats && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+            <p className="text-sm text-muted-foreground">Solicitações totais</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

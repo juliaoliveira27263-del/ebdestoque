@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Loader2, BarChart3, TrendingUp, Package, ArrowLeftRight } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -10,227 +11,225 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  Legend,
 } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { Button } from '@/components/RippleButton';
+import type { Product, Movement, Industry } from '@/types';
 
-interface StockByIndustry {
-  industry: string;
-  stock: number;
-}
+const PERIODS = [
+  { label: '7 dias', value: 7 },
+  { label: '15 dias', value: 15 },
+  { label: '30 dias', value: 30 },
+  { label: '90 dias', value: 90 },
+];
 
-interface TopProduct {
-  name: string;
-  count: number;
-}
+export default function ReportsPage() {
+  const [days, setDays] = useState(30);
 
-interface MovementsOverTime {
-  date: string;
-  in: number;
-  out: number;
-}
+  const startDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString();
+  }, [days]);
 
-interface RequestsSummary {
-  pending: number;
-  approved: number;
-  rejected: number;
-  fulfilled: number;
-}
-
-export function ReportsPage() {
-  const [period, setPeriod] = useState('30');
-
-  const days = parseInt(period, 10);
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-
-  const { data: stockByIndustry = [] } = useQuery<StockByIndustry[]>({
-    queryKey: ['report-stock-by-industry'],
-    queryFn: async () => {
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['reports-products'],
+    queryFn: async (): Promise<Product[]> => {
       const { data, error } = await supabase
         .from('products')
-        .select('stock_quantity, industry:industries(name)');
+        .select('*, industry:industries(*)')
+        .order('name');
       if (error) throw error;
-      const map = new Map<string, number>();
-      (data || []).forEach((item: { stock_quantity: number; industry: { name: string }[] | null }) => {
-        const name = item.industry?.[0]?.name || 'Sem indústria';
-        map.set(name, (map.get(name) || 0) + (item.stock_quantity || 0));
-      });
-      return Array.from(map.entries()).map(([industry, stock]) => ({ industry, stock }));
+      return (data ?? []) as Product[];
     },
   });
 
-  const { data: topProducts = [] } = useQuery<TopProduct[]>({
-    queryKey: ['report-top-products', period],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('request_items')
-        .select('quantity, product:products(name)')
-        .gte('created_at', startDate.toISOString());
-      if (error) throw error;
-      const map = new Map<string, number>();
-      (data || []).forEach((item: { quantity: number; product: { name: string }[] | null }) => {
-        const name = item.product?.[0]?.name || 'Desconhecido';
-        map.set(name, (map.get(name) || 0) + item.quantity);
-      });
-      return Array.from(map.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-    },
-  });
-
-  const { data: movementsOverTime = [] } = useQuery<MovementsOverTime[]>({
-    queryKey: ['report-movements-over-time', period],
-    queryFn: async () => {
+  const { data: movements = [] } = useQuery({
+    queryKey: ['reports-movements', days],
+    queryFn: async (): Promise<Movement[]> => {
       const { data, error } = await supabase
         .from('movements')
-        .select('type, quantity, created_at')
-        .gte('created_at', startDate.toISOString());
+        .select('*, product:products(*), profile:profiles(*)')
+        .gte('created_at', startDate)
+        .order('created_at', { ascending: true });
       if (error) throw error;
-      const map = new Map<string, MovementsOverTime>();
-      (data || []).forEach((item: { type: string; quantity: number; created_at: string }) => {
-        const date = item.created_at.split('T')[0];
-        const existing = map.get(date) || { date, in: 0, out: 0 };
-        if (item.type === 'in') existing.in += item.quantity;
-        if (item.type === 'out') existing.out += item.quantity;
-        map.set(date, existing);
-      });
-      return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+      return (data ?? []) as Movement[];
     },
   });
 
-  const { data: requestsSummary } = useQuery<RequestsSummary>({
-    queryKey: ['report-requests-summary', period],
+  const { data: requests = [] } = useQuery({
+    queryKey: ['reports-requests', days],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('requests')
-        .select('status')
-        .gte('created_at', startDate.toISOString());
+        .select('status, request_items(product_id)')
+        .gte('created_at', startDate);
       if (error) throw error;
-      const items = data || [];
-      return {
-        pending: items.filter((r: { status: string }) => r.status === 'pending').length,
-        approved: items.filter((r: { status: string }) => r.status === 'approved').length,
-        rejected: items.filter((r: { status: string }) => r.status === 'rejected').length,
-        fulfilled: items.filter((r: { status: string }) => r.status === 'fulfilled').length,
-      };
+      return data ?? [];
     },
   });
 
+  const stockByIndustry = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products) {
+      const name = (p.industry as Industry | null)?.name ?? 'Sem indústria';
+      map.set(name, (map.get(name) ?? 0) + p.stock_quantity);
+    }
+    return Array.from(map.entries()).map(([industry, stock]) => ({ industry, stock }));
+  }, [products]);
+
+  const topRequested = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of requests) {
+      const items = (r as { request_items?: { product_id: string }[] }).request_items ?? [];
+      for (const item of items) {
+        map.set(item.product_id, (map.get(item.product_id) ?? 0) + 1);
+      }
+    }
+    const productNames = new Map(products.map((p) => [p.id, p.name]));
+    return Array.from(map.entries())
+      .map(([id, count]) => ({ name: productNames.get(id) ?? 'Produto', count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [requests, products]);
+
+  const movementsOverTime = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of movements) {
+      const date = new Date(m.created_at).toLocaleDateString('pt-BR');
+      map.set(date, (map.get(date) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+  }, [movements]);
+
+  const summary = useMemo(() => {
+    const total = requests.length;
+    const approved = requests.filter((r) => (r as { status: string }).status === 'approved').length;
+    const rejected = requests.filter((r) => (r as { status: string }).status === 'rejected').length;
+    const pending = requests.filter((r) => (r as { status: string }).status === 'pending').length;
+    return { total, approved, rejected, pending };
+  }, [requests]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
-          <p className="text-sm text-muted-foreground">Análise de dados do sistema</p>
+          <p className="text-sm text-muted-foreground">Análise de dados do período.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="period">Período:</Label>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger id="period" className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">7 dias</SelectItem>
-              <SelectItem value="15">15 dias</SelectItem>
-              <SelectItem value="30">30 dias</SelectItem>
-              <SelectItem value="90">90 dias</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex gap-2">
+          {PERIODS.map((p) => (
+            <Button
+              key={p.value}
+              variant={days === p.value ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDays(p.value)}
+            >
+              {p.label}
+            </Button>
+          ))}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
-          { label: 'Pendentes', value: requestsSummary?.pending ?? 0, color: 'text-warning' },
-          { label: 'Aprovadas', value: requestsSummary?.approved ?? 0, color: 'text-success' },
-          { label: 'Rejeitadas', value: requestsSummary?.rejected ?? 0, color: 'text-destructive' },
-          { label: 'Atendidas', value: requestsSummary?.fulfilled ?? 0, color: 'text-primary' },
-        ].map((card) => (
-          <div key={card.label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
-            <p className="text-xs text-muted-foreground">{card.label}</p>
-          </div>
-        ))}
+          { label: 'Solicitações', value: summary.total, icon: Package },
+          { label: 'Aprovadas', value: summary.approved, icon: TrendingUp },
+          { label: 'Pendentes', value: summary.pending, icon: BarChart3 },
+          { label: 'Movimentações', value: movements.length, icon: ArrowLeftRight },
+        ].map((s) => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <Icon className="h-5 w-5 text-primary" />
+                <span className="text-2xl font-bold text-foreground">{s.value}</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{s.label}</p>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Estoque por indústria</h2>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <h2 className="mb-4 text-base font-semibold text-foreground">Estoque por indústria</h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={stockByIndustry}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="industry" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis dataKey="industry" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
+                borderRadius: '0.75rem',
                 border: '1px solid hsl(var(--border))',
-                borderRadius: '0.5rem',
-                fontSize: '0.875rem',
+                background: 'hsl(var(--card))',
               }}
             />
-            <Bar dataKey="stock" fill="#dc2626" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="stock" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Produtos mais solicitados</h2>
-        {topProducts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum dado no período selecionado</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={topProducts} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={150} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                }}
-              />
-              <Bar dataKey="count" fill="#dc2626" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-foreground">Produtos mais solicitados</h2>
+          {topRequested.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem dados.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={topRequested} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis type="number" tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '0.75rem',
+                    border: '1px solid hsl(var(--border))',
+                    background: 'hsl(var(--card))',
+                  }}
+                />
+                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Movimentações ao longo do tempo</h2>
-        {movementsOverTime.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum dado no período selecionado</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={movementsOverTime}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.875rem',
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="in" stroke="#22c55e" name="Entrada" strokeWidth={2} />
-              <Line type="monotone" dataKey="out" stroke="#dc2626" name="Saída" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-foreground">Movimentações ao longo do tempo</h2>
+          {movementsOverTime.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem dados.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={movementsOverTime}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '0.75rem',
+                    border: '1px solid hsl(var(--border))',
+                    background: 'hsl(var(--card))',
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
     </div>
   );
