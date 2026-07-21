@@ -1,59 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
+    --background: 0 0% 96%;
     --foreground: 0 0% 10%;
+
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
+
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
-    --primary: 0 72% 51%;
+
+    --primary: 350 83% 42%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 14% 96%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 14% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 84% 95%;
-    --accent-foreground: 0 72% 30%;
+
+    --secondary: 355 70% 30%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 355 75% 55%;
+    --accent-foreground: 0 0% 100%;
+
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --success: 142 71% 45%;
+
+    --success: 142 71% 40%;
     --success-foreground: 0 0% 100%;
+
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 0 72% 51%;
-    --radius: 0.75rem;
+    --warning-foreground: 0 0% 10%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 350 83% 42%;
+
+    --chart-1: 350 83% 42%;
+    --chart-2: 355 75% 55%;
+    --chart-3: 10 80% 50%;
+    --chart-4: 25 85% 55%;
+    --chart-5: 0 0% 45%;
+
+    --radius: 0.625rem;
   }
 
   .dark {
-    --background: 0 0% 7%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 72% 51%;
+    --background: 0 0% 8%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 350 83% 48%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 10% 16%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 10% 16%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 0 60% 20%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 63% 50%;
+
+    --secondary: 355 60% 35%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 355 70% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --border: 0 10% 20%;
-    --input: 0 10% 20%;
-    --ring: 0 72% 51%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 10%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 350 83% 48%;
+
+    --chart-1: 350 83% 55%;
+    --chart-2: 355 75% 60%;
+    --chart-3: 10 80% 55%;
+    --chart-4: 25 85% 60%;
+    --chart-5: 0 0% 65%;
   }
 }
 
@@ -61,35 +96,75 @@
   * {
     @apply border-border;
   }
+  html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-background text-foreground;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    overscroll-behavior: none;
-    -webkit-tap-highlight-color: transparent;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    /* Safe area for iOS notch / home indicator */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Fix for standalone PWA on iOS: remove double safe-area padding */
+  @media all and (display-mode: standalone) {
+    body {
+      padding-top: 0;
+    }
   }
 }
 
-@layer utilities {
-  .shimmer {
-    @apply animate-shimmer bg-gradient-to-r from-muted via-muted/50 to-muted bg-[length:1000px_100%];
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
-html, body, #root {
-  height: 100%;
-  width: 100%;
+@keyframes ripple-anim {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-anim 0.6s ease-out;
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.1) 50%, hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
 }

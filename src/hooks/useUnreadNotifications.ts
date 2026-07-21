@@ -1,33 +1,35 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { fetchNotifications } from '@/services/notifications';
 
 export function useUnreadNotifications() {
-  const { profile, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: unreadCount = 0 } = useQuery({
-    queryKey: ['unread-notifications', profile?.id, isAdmin],
-    queryFn: async (): Promise<number> => {
-      let query = supabase.from('notifications').select('id', { count: 'exact', head: true });
-
-      if (isAdmin) {
-        query = query.or('user_id.is.null,read.eq.false');
-      } else if (profile) {
-        query = query.eq('user_id', profile.id).eq('read', false);
-      } else {
-        return 0;
-      }
-
-      const { count, error } = await query;
-      if (error) {
-        console.error('Error fetching unread notifications:', error.message);
-        return 0;
-      }
-      return count ?? 0;
-    },
-    enabled: !!profile,
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: fetchNotifications,
     refetchInterval: 30_000,
   });
 
-  return { unreadCount };
+  useEffect(() => {
+    const channel = supabase
+      .channel('notifications-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return { notifications, unreadCount };
 }

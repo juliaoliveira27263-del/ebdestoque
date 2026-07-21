@@ -1,5 +1,22 @@
 export type UserRole = 'admin' | 'promotor' | 'supervisor' | 'vendedor';
 
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
+
+export type MovementType = 'in' | 'out' | 'adjustment';
+
+export interface Industry {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -14,19 +31,6 @@ export interface Category {
   id: string;
   name: string;
   description: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Industry {
-  id: string;
-  name: string;
-  cnpj: string | null;
-  contact_name: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
-  address: string | null;
-  active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -49,19 +53,6 @@ export interface Product {
   industry?: Industry | null;
 }
 
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
-
-export interface RequestItem {
-  id: string;
-  request_id: string;
-  product_id: string;
-  quantity: number;
-  industry_id: string | null;
-  created_at: string;
-  product?: Product | null;
-  industry?: Industry | null;
-}
-
 export interface StockRequest {
   id: string;
   user_id: string;
@@ -74,7 +65,16 @@ export interface StockRequest {
   request_items?: RequestItem[];
 }
 
-export type MovementType = 'in' | 'out' | 'adjustment';
+export interface RequestItem {
+  id: string;
+  request_id: string;
+  product_id: string;
+  quantity: number;
+  industry_id: string | null;
+  created_at: string;
+  product?: Product | null;
+  industry?: Industry | null;
+}
 
 export interface Movement {
   id: string;
@@ -102,11 +102,10 @@ export interface Notification {
 
 export interface DashboardStats {
   totalProducts: number;
+  totalStock: number;
   lowStockCount: number;
   pendingRequests: number;
-  totalIndustries: number;
+  approvedRequests: number;
   totalUsers: number;
   totalMovements: number;
-  stockByIndustry: { industry: string; stock: number }[];
-  requestsByStatus: { status: string; count: number }[];
 }

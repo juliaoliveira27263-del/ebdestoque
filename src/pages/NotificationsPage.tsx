@@ -1,134 +1,114 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Bell,
-  CheckCheck,
-  Loader2,
-  Package,
-  ClipboardList,
-  AlertTriangle,
-  Info,
-} from 'lucide-react';
+import { Bell, CheckCheck, Loader2, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/RippleButton';
-import { Badge } from '@/components/ui/badge';
-import { EmptyState } from '@/components/EmptyState';
-import { ErrorState } from '@/components/ErrorState';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/services/notifications';
+import { RippleButton } from '@/components/RippleButton';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
 import { cn } from '@/lib/utils';
 
-const ICONS: Record<string, typeof Package> = {
-  product: Package,
-  request: ClipboardList,
-  alert: AlertTriangle,
-  info: Info,
-};
-
-export default function NotificationsPage() {
-  const { profile, isAdmin } = useAuth();
+export function NotificationsPage() {
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['notifications', profile?.id, isAdmin],
-    queryFn: () => (profile ? fetchNotifications(profile.id, isAdmin) : Promise.resolve([])),
-    enabled: !!profile,
+  const { data: notifications = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: fetchNotifications,
   });
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => markNotificationRead(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-notifications'] });
-    },
-    onError: (err: Error) => toast.error(err.message),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const markAllMutation = useMutation({
-    mutationFn: () => (profile ? markAllNotificationsRead(profile.id) : Promise.resolve()),
+    mutationFn: markAllNotificationsRead,
     onSuccess: () => {
-      toast.success('Todas as notificações marcadas como lidas.');
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-notifications'] });
+      toast.success('Todas as notificações marcadas como lidas.');
     },
-    onError: (err: Error) => toast.error(err.message),
   });
+
+  if (error) {
+    return <ErrorState message={error.message} onRetry={() => refetch()} />;
+  }
+
+  const unread = notifications.filter((n) => !n.read);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Notificações</h1>
-          <p className="text-sm text-muted-foreground">Suas notificações recentes.</p>
+          <h2 className="text-2xl font-bold text-foreground">Notificações</h2>
+          <p className="text-sm text-muted-foreground">
+            {unread.length > 0 ? `${unread.length} não lida(s)` : 'Você está em dia!'}
+          </p>
         </div>
-        {notifications.some((n) => !n.read) && (
-          <Button variant="outline" onClick={() => markAllMutation.mutate()} disabled={markAllMutation.isPending}>
-            <CheckCheck className="h-4 w-4" />
+        {unread.length > 0 && (
+          <RippleButton
+            variant="outline"
+            onClick={() => markAllMutation.mutate()}
+            disabled={markAllMutation.isPending}
+          >
+            {markAllMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
             Marcar todas como lidas
-          </Button>
+          </RippleButton>
         )}
       </div>
 
-      {isError ? (
-        <ErrorState onRetry={refetch} />
-      ) : isLoading ? (
-        <div className="flex h-40 items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-20 rounded-xl shimmer" />
+          ))}
         </div>
       ) : notifications.length === 0 ? (
         <EmptyState
-          icon={Bell}
+          icon={BellOff}
           title="Nenhuma notificação"
-          description="Você está em dia com tudo."
+          description="Você não tem notificações no momento."
         />
       ) : (
         <div className="space-y-2">
-          {notifications.map((n) => {
-            const Icon = ICONS[n.type] ?? Info;
-            return (
+          {notifications.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => !n.read && markReadMutation.mutate(n.id)}
+              className={cn(
+                'flex w-full items-start gap-4 rounded-xl border border-border p-4 text-left shadow-sm transition-all hover:shadow-md',
+                n.read ? 'bg-card' : 'bg-primary/5 border-primary/20'
+              )}
+            >
               <div
-                key={n.id}
                 className={cn(
-                  'flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors',
-                  !n.read && 'border-primary/30 bg-primary/5'
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                  n.read ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'
                 )}
               >
-                <div
-                  className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                    n.read ? 'bg-muted' : 'bg-primary/10'
-                  )}
-                >
-                  <Icon className={cn('h-4 w-4', n.read ? 'text-muted-foreground' : 'text-primary')} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">{n.title}</p>
-                    {!n.read && <Badge variant="default">Nova</Badge>}
-                  </div>
-                  {n.message && (
-                    <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
-                  )}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(n.created_at).toLocaleString('pt-BR')}
-                  </p>
-                </div>
-                {!n.read && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => markReadMutation.mutate(n.id)}
-                    disabled={markReadMutation.isPending}
-                  >
-                    Marcar lida
-                  </Button>
-                )}
+                <Bell className="h-5 w-5" />
               </div>
-            );
-          })}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">{n.title}</span>
+                  {!n.read && (
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </div>
+                {n.message && (
+                  <p className="text-sm text-muted-foreground">{n.message}</p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {new Date(n.created_at).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              {!n.read && (
+                <span className="shrink-0 text-xs font-medium text-primary">Clique para marcar como lida</span>
+              )}
+            </button>
+          ))}
         </div>
       )}
     </div>

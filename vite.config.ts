@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
@@ -9,96 +9,77 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons/*.png'],
-      manifest: {
-        name: 'EBD Petrolina - Gestão de Estoque',
-        short_name: 'EBD Petrolina',
-        description: 'Sistema de gestão de estoque e solicitações',
-        theme_color: '#dc2626',
-        background_color: '#0a0a0a',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
-        id: 'com.ebdpetrolina.app',
-        categories: ['business', 'productivity', 'utilities'],
-        lang: 'pt-BR',
-        dir: 'ltr',
-        prefer_related_applications: false,
-        icons: [
-          {
-            src: 'pwa-64x64.png',
-            sizes: '64x64',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-          {
-            src: 'apple-touch-icon-180x180.png',
-            sizes: '180x180',
-            type: 'image/png',
-            purpose: 'any',
-          },
-        ],
-      },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,webmanifest}'],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,woff,woff2,ttf,ico}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/auth/, /^\/api/, /^\/rest/],
+        navigateFallbackDenylist: [/^\/offline\.html$/],
+        offlineGoogleAnalytics: false,
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*$/,
-            handler: 'NetworkFirst',
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
             options: {
-              cacheName: 'supabase-auth-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 300 },
+              cacheName: 'google-fonts-cache',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*$/,
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
+            urlPattern: /\.(?:png|jpg|jpeg|svg|webp|gif|ico)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'image-cache',
-              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
+              cacheName: 'images-cache',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          {
-            urlPattern: /\.(?:js|css)$/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'static-resources',
-              expiration: { maxEntries: 30, maxAgeSeconds: 86400 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
+        ],
+      },
+      manifest: {
+        name: 'EBD Inventário',
+        short_name: 'EBD',
+        description: 'Sistema de Controle de Estoque da EBD Petrolina',
+        lang: 'pt-BR',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        theme_color: '#C00000',
+        background_color: '#ffffff',
+        categories: ['business', 'productivity'],
+        icons: [
+          { src: '/icons/icon-72x72.svg',        sizes: '72x72',   type: 'image/svg+xml' },
+          { src: '/icons/icon-96x96.svg',        sizes: '96x96',   type: 'image/svg+xml' },
+          { src: '/icons/icon-128x128.svg',      sizes: '128x128', type: 'image/svg+xml' },
+          { src: '/icons/icon-144x144.svg',      sizes: '144x144', type: 'image/svg+xml' },
+          { src: '/icons/icon-152x152.svg',      sizes: '152x152', type: 'image/svg+xml' },
+          { src: '/icons/icon-192x192.svg',      sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icons/maskable-192x192.svg',  sizes: '192x192', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: '/icons/icon-384x384.svg',      sizes: '384x384', type: 'image/svg+xml' },
+          { src: '/icons/icon-512x512.svg',      sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icons/maskable-512x512.svg',  sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
         ],
       },
       devOptions: {
@@ -111,24 +92,23 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    exclude: ['lucide-react'],
+  },
   build: {
-    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'react-vendor': ['react', 'react-dom'],
+          'router': ['react-router-dom'],
+          'query': ['@tanstack/react-query'],
           'supabase': ['@supabase/supabase-js'],
-          'charts': ['recharts'],
-          'radix': [
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-avatar',
+          'recharts': ['recharts'],
+          'radix-ui': [
             '@radix-ui/react-dialog',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-scroll-area',
-            '@radix-ui/react-select',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-switch',
+            '@radix-ui/react-dropdown-menu',
             '@radix-ui/react-tabs',
+            '@radix-ui/react-select',
             '@radix-ui/react-tooltip',
           ],
         },

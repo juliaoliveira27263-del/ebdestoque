@@ -12,16 +12,14 @@ export async function fetchProfiles(): Promise<Profile[]> {
 
 export async function updateProfile(
   id: string,
-  input: Partial<Pick<Profile, 'name' | 'role' | 'phone' | 'active'>>
+  input: { name?: string; role?: UserRole; phone?: string; active?: boolean }
 ): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
     .update(input)
     .eq('id', id)
     .select('*')
-    .maybeSingle();
+    .single();
   if (error) throw error;
   return data as Profile;
 }
-
-export type { UserRole };
