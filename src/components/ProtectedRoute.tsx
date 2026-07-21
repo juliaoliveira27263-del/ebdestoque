@@ -1,27 +1,28 @@
-import type { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { PageLoader } from '@/components/PageLoader';
+import type { UserRole } from '@/types';
+import type { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
-  children: ReactNode;
+  children?: ReactNode;
+  roles?: UserRole[];
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { session, loading } = useAuth();
-  const location = useLocation();
+export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
+  const { session, profile, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!session) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  if (roles && profile && !roles.includes(profile.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children ? <>{children}</> : <Outlet />;
 }

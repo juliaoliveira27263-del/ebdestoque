@@ -1,5 +1,5 @@
-import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/RippleButton';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { RippleButton } from '@/components/RippleButton';
 
 interface ErrorStateProps {
   message?: string;
@@ -8,22 +8,22 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-        <AlertCircle className="h-7 w-7 text-destructive" />
+    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-12 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+        <AlertTriangle className="h-8 w-8 text-destructive" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-foreground">
-        {message ?? 'Algo deu errado'}
-      </h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        Tente novamente. Se o problema persistir, contate o suporte.
-      </p>
-      {onRetry ? (
-        <Button variant="outline" className="mt-4" onClick={onRetry}>
+      <div className="space-y-1">
+        <h3 className="text-base font-semibold text-foreground">Algo deu errado</h3>
+        <p className="text-sm text-muted-foreground">
+          {message ?? 'Não foi possível carregar os dados. Tente novamente.'}
+        </p>
+      </div>
+      {onRetry && (
+        <RippleButton variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw className="h-4 w-4" />
           Tentar novamente
-        </Button>
-      ) : null}
+        </RippleButton>
+      )}
     </div>
   );
 }

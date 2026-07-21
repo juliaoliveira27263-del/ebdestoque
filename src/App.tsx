@@ -1,39 +1,43 @@
-import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { QueryProvider } from '@/contexts/QueryProvider';
+import { Toaster } from 'sonner';
 import { AppLayout } from '@/components/layout/AppLayout';
-import LoginPage from '@/pages/LoginPage';
-import ResetPasswordPage from '@/pages/ResetPasswordPage';
-import { Loader2 } from 'lucide-react';
+import { LoginPage } from '@/pages/LoginPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { PWAInstallBanner } from '@/components/PWAInstallBanner';
+import { PWAUpdateToast } from '@/components/PWAUpdateToast';
+import { lazy, Suspense } from 'react';
+import { PageLoader } from '@/components/PageLoader';
 
-const HomePage = lazy(() => import('@/pages/HomePage'));
-const NewRequestPage = lazy(() => import('@/pages/NewRequestPage'));
-const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
-const ProductsPage = lazy(() => import('@/pages/ProductsPage'));
-const RequestsPage = lazy(() => import('@/pages/RequestsPage'));
-const MovementsPage = lazy(() => import('@/pages/MovementsPage'));
-const IndustriesPage = lazy(() => import('@/pages/IndustriesPage'));
-const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
-const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
-const UsersPage = lazy(() => import('@/pages/UsersPage'));
-const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
-
-function PageLoader() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
-  );
-}
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
+const NewRequestPage = lazy(() => import('@/pages/NewRequestPage').then((m) => ({ default: m.NewRequestPage })));
+const ProductsPage = lazy(() => import('@/pages/ProductsPage').then((m) => ({ default: m.ProductsPage })));
+const RequestsPage = lazy(() => import('@/pages/RequestsPage').then((m) => ({ default: m.RequestsPage })));
+const MovementsPage = lazy(() => import('@/pages/MovementsPage').then((m) => ({ default: m.MovementsPage })));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
+const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const IndustriesPage = lazy(() => import('@/pages/IndustriesPage').then((m) => ({ default: m.IndustriesPage })));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 
 function RootRedirect() {
-  const { isAdmin } = useAuth();
-  return <Navigate to={isAdmin ? '/dashboard' : '/home'} replace />;
+  const { profile, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (profile?.role === 'admin') return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/solicitar" replace />;
 }
 
 function AppRoutes() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <PageLoader />;
+  }
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -67,9 +71,14 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <QueryProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <PWAInstallBanner />
+          </BrowserRouter>
+          <PWAUpdateToast />
+          <Toaster position="top-right" richColors closeButton />
+        </QueryProvider>
       </AuthProvider>
     </ThemeProvider>
   );

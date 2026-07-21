@@ -1,23 +1,32 @@
-import type { ComponentType } from 'react';
-import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   title: string;
-  description: string;
-  action?: ReactNode;
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card p-8 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-        <Icon className={cn('h-7 w-7 text-muted-foreground')} />
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border p-12 text-center',
+        className
+      )}
+    >
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+        <Icon className="h-8 w-8 text-muted-foreground" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-foreground">{title}</h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action ? <div className="mt-4">{action}</div> : null}
+      <div className="space-y-1">
+        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        {description && (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {action}
     </div>
   );
 }
