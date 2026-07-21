@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Profile, UserRole } from '@/types';
+import type { Profile } from '@/types';
 
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase
@@ -10,20 +10,10 @@ export async function fetchProfiles(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
-export interface ProfileUpdates {
-  name?: string;
-  role?: UserRole;
-  phone?: string | null;
-  active?: boolean;
-}
-
-export async function updateProfile(
-  id: string,
-  updates: ProfileUpdates
-): Promise<Profile> {
+export async function updateProfile(id: string, input: Partial<Pick<Profile, 'name' | 'role' | 'phone' | 'active'>>): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
-    .update(updates)
+    .update(input)
     .eq('id', id)
     .select('*')
     .maybeSingle();

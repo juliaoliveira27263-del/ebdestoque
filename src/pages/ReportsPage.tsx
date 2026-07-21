@@ -1,177 +1,158 @@
-import * as React from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, BarChart3 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Area, AreaChart,
-} from 'recharts';
-import { supabase } from '@/lib/supabase';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { EmptyState } from '@/components/EmptyState';
+import { Loader2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { fetchDashboardStats } from '@/services/dashboard';
+import { fetchMovements } from '@/services/movements';
+import { fetchRequests } from '@/services/requests';
 import { REQUEST_STATUS_LABELS } from '@/lib/constants';
-import type { RequestStatus } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const PERIODS = [
-  { days: 7, label: '7 dias' },
-  { days: 15, label: '15 dias' },
-  { days: 30, label: '30 dias' },
-  { days: 90, label: '90 dias' },
+const PERIOD_OPTIONS = [
+  { value: '7', label: '7 dias' },
+  { value: '15', label: '15 dias' },
+  { value: '30', label: '30 dias' },
+  { value: '90', label: '90 dias' },
 ];
 
+const PIE_COLORS: Record<string, string> = {
+  pending: '#f59e0b',
+  approved: '#22c55e',
+  rejected: '#dc2626',
+  fulfilled: '#6b7280',
+};
+
 export function ReportsPage() {
-  const [period, setPeriod] = React.useState('7');
+  const [period, setPeriod] = useState('30');
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['reports', period],
-    queryFn: async () => {
-      const days = parseInt(period, 10);
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
-      const { data: products } = await supabase
-        .from('products')
-        .select('stock_quantity, industry:industries(name)');
-
-      const industryMap = new Map<string, number>();
-      for (const row of products ?? []) {
-        const name = (row.industry as unknown as { name: string } | null)?.name ?? 'Sem indústria';
-        industryMap.set(name, (industryMap.get(name) ?? 0) + (row.stock_quantity ?? 0));
-      }
-      const stockByIndustry = Array.from(industryMap, ([name, stock]) => ({ name, stock }));
-
-      const { data: reqItems } = await supabase
-        .from('request_items')
-        .select('product:products(name), quantity')
-        .gte('created_at', startDate.toISOString());
-
-      const productMap = new Map<string, number>();
-      for (const row of reqItems ?? []) {
-        const name = (row.product as unknown as { name: string } | null)?.name ?? 'Desconhecido';
-        productMap.set(name, (productMap.get(name) ?? 0) + (row.quantity ?? 0));
-      }
-      const topProducts = Array.from(productMap, ([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      const { data: movements } = await supabase
-        .from('movements')
-        .select('created_at')
-        .gte('created_at', startDate.toISOString());
-
-      const moveMap = new Map<string, number>();
-      for (const row of movements ?? []) {
-        const date = new Date(row.created_at).toLocaleDateString('pt-BR');
-        moveMap.set(date, (moveMap.get(date) ?? 0) + 1);
-      }
-      const movementsOverTime = Array.from(moveMap, ([date, count]) => ({ date, count }));
-
-      const { data: reqSummary } = await supabase
-        .from('requests')
-        .select('status')
-        .gte('created_at', startDate.toISOString());
-
-      const statusMap = new Map<string, number>();
-      for (const row of reqSummary ?? []) {
-        const s = (row as { status: string }).status;
-        statusMap.set(s, (statusMap.get(s) ?? 0) + 1);
-      }
-      const requestsSummary = Array.from(statusMap, ([status, count]) => ({
-        status,
-        label: REQUEST_STATUS_LABELS[status as RequestStatus] ?? status,
-        count,
-      }));
-
-      return { stockByIndustry, topProducts, movementsOverTime, requestsSummary };
-    },
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: fetchDashboardStats,
   });
 
-  if (isLoading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  const { data: movements = [], isLoading: movementsLoading } = useQuery({
+    queryKey: ['movements'],
+    queryFn: fetchMovements,
+  });
 
-  if (!data) return null;
+  const { data: requests = [], isLoading: requestsLoading } = useQuery({
+    queryKey: ['requests'],
+    queryFn: fetchRequests,
+  });
+
+  const days = parseInt(period, 10);
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const periodMovements = movements.filter((m) => new Date(m.created_at) >= since);
+
+  const movementsByDate = new Map<string, number>();
+  for (const m of periodMovements) {
+    const d = new Date(m.created_at).toLocaleDateString('pt-BR');
+    movementsByDate.set(d, (movementsByDate.get(d) ?? 0) + 1);
+  }
+  const movementsOverTime = Array.from(movementsByDate.entries()).map(([date, count]) => ({ date, count }));
+
+  const productRequestCount = new Map<string, number>();
+  for (const r of requests) {
+    for (const item of r.request_items ?? []) {
+      const name = item.product?.name ?? 'Desconhecido';
+      productRequestCount.set(name, (productRequestCount.get(name) ?? 0) + 1);
+    }
+  }
+  const topProducts = Array.from(productRequestCount.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  if (statsLoading || movementsLoading || requestsLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
-        <div className="flex items-center gap-2">
-          <Label>Período:</Label>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PERIODS.map((p) => <SelectItem key={p.days} value={String(p.days)}>{p.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
+          <p className="text-sm text-muted-foreground">Análise de dados do sistema</p>
+        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {PERIOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Estoque por indústria</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={stats?.stockByIndustry ?? []}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis dataKey="industry" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip />
+            <Bar dataKey="stock" fill="#dc2626" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Produtos mais solicitados</h2>
+          {topProducts.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Sem dados.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={topProducts} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={60} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#dc2626" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Movimentações ao longo do tempo</h2>
+          {movementsOverTime.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Sem dados.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={movementsOverTime}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#dc2626" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold text-foreground">Estoque por Indústria</h3>
-        {data.stockByIndustry.length === 0 ? (
-          <EmptyState icon={BarChart3} title="Sem dados" description="Nenhum produto cadastrado." />
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.stockByIndustry} layout="horizontal">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-              <Bar dataKey="stock" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold text-foreground">Produtos mais solicitados</h3>
-        {data.topProducts.length === 0 ? (
-          <EmptyState icon={BarChart3} title="Sem dados" description="Nenhuma solicitação no período." />
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.topProducts} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={120} />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold text-foreground">Movimentações ao longo do tempo</h3>
-        {data.movementsOverTime.length === 0 ? (
-          <EmptyState icon={BarChart3} title="Sem dados" description="Nenhuma movimentação no período." />
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data.movementsOverTime}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-              <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h3 className="mb-4 font-semibold text-foreground">Resumo de solicitações</h3>
-        {data.requestsSummary.length === 0 ? (
-          <EmptyState icon={BarChart3} title="Sem dados" description="Nenhuma solicitação no período." />
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {data.requestsSummary.map((s) => (
-              <div key={s.status} className="rounded-lg border border-border p-4 text-center">
-                <p className="text-2xl font-bold text-foreground">{s.count}</p>
-                <p className="text-sm text-muted-foreground">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Resumo de solicitações</h2>
+        <ResponsiveContainer width="100%" height={250}>
+          <PieChart>
+            <Pie
+              data={stats?.requestsByStatus ?? []}
+              dataKey="count"
+              nameKey="status"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label={(entry: { status: string }) => REQUEST_STATUS_LABELS[entry.status as keyof typeof REQUEST_STATUS_LABELS] ?? entry.status}
+            >
+              {(stats?.requestsByStatus ?? []).map((entry) => (
+                <Cell key={entry.status} fill={PIE_COLORS[entry.status] ?? '#dc2626'} />
+              ))}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

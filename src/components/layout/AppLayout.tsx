@@ -1,12 +1,12 @@
-import * as React from 'react';
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { cn } from '@/lib/utils';
 
 export function AppLayout() {
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -16,12 +16,7 @@ export function AppLayout() {
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
       />
-      <div
-        className={cn(
-          'flex min-h-screen flex-col transition-all duration-300',
-          collapsed ? 'lg:pl-20' : 'lg:pl-64'
-        )}
-      >
+      <div className={cn('flex min-h-screen flex-col transition-all duration-200', collapsed ? 'lg:pl-20' : 'lg:pl-64')}>
         <Header onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 p-4 lg:p-6">
           <Outlet />

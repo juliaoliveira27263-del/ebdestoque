@@ -1,86 +1,89 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingBag, Clock, CheckCircle2, XCircle, Package } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { ShoppingCart, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { REQUEST_STATUS_COLORS, REQUEST_STATUS_LABELS } from '@/lib/constants';
+import { fetchMyRequests } from '@/services/requests';
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS } from '@/lib/constants';
+import { Badge } from '@/components/ui/badge';
 import type { RequestStatus } from '@/types';
 
 export function HomePage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const { data: stats } = useQuery({
-    queryKey: ['my-request-stats', profile?.id],
-    queryFn: async () => {
-      const { count: total } = await supabase
-        .from('requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', profile!.id);
-      const { count: pending } = await supabase
-        .from('requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', profile!.id)
-        .eq('status', 'pending');
-      const { count: approved } = await supabase
-        .from('requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', profile!.id)
-        .eq('status', 'approved');
-      const { count: rejected } = await supabase
-        .from('requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', profile!.id)
-        .eq('status', 'rejected');
-      return {
-        total: total ?? 0,
-        pending: pending ?? 0,
-        approved: approved ?? 0,
-        rejected: rejected ?? 0,
-      };
-    },
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ['my-requests', profile?.id],
+    queryFn: () => fetchMyRequests(profile!.id),
     enabled: !!profile,
   });
 
-  const firstName = profile?.name?.split(' ')[0] ?? 'Usuário';
+  const total = requests.length;
+  const pending = requests.filter((r) => r.status === 'pending').length;
+  const approved = requests.filter((r) => r.status === 'approved').length;
+  const rejected = requests.filter((r) => r.status === 'rejected').length;
 
-  const statCards: { label: string; value: number; icon: typeof Clock; status: RequestStatus }[] = [
-    { label: 'Total', value: stats?.total ?? 0, icon: Package, status: 'fulfilled' },
-    { label: REQUEST_STATUS_LABELS.pending, value: stats?.pending ?? 0, icon: Clock, status: 'pending' },
-    { label: REQUEST_STATUS_LABELS.approved, value: stats?.approved ?? 0, icon: CheckCircle2, status: 'approved' },
-    { label: REQUEST_STATUS_LABELS.rejected, value: stats?.rejected ?? 0, icon: XCircle, status: 'rejected' },
+  const stats = [
+    { label: 'Total', value: total, icon: ShoppingCart, color: 'text-primary' },
+    { label: 'Pendentes', value: pending, icon: Clock, color: 'text-warning' },
+    { label: 'Aprovadas', value: approved, icon: CheckCircle2, color: 'text-success' },
+    { label: 'Rejeitadas', value: rejected, icon: XCircle, color: 'text-destructive' },
   ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Olá, {firstName}!</h1>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Olá, {profile?.name ?? 'Usuário'}!</h1>
+        <p className="text-sm text-muted-foreground">Faça uma nova solicitação de produtos.</p>
+      </div>
 
       <button
         onClick={() => navigate('/solicitar')}
-        className="flex w-full flex-col items-center gap-3 rounded-2xl bg-primary p-8 text-primary-foreground shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
+        className="flex w-full items-center gap-4 rounded-2xl bg-primary p-6 text-left shadow-lg transition-all hover:bg-primary/90 active:scale-[0.98]"
       >
-        <ShoppingBag className="h-12 w-12" />
-        <div>
-          <h2 className="text-2xl font-bold">SOLICITAÇÃO</h2>
-          <p className="text-sm text-primary-foreground/80">Clique para fazer uma nova solicitação</p>
+        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-foreground/20">
+          <ShoppingCart className="h-7 w-7 text-primary-foreground" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-xl font-bold text-primary-foreground">SOLICITAÇÃO</h2>
+          <p className="text-sm text-primary-foreground/80">Solicite produtos do estoque</p>
         </div>
       </button>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${REQUEST_STATUS_COLORS[card.status]}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </div>
-              <p className="mt-3 text-2xl font-bold text-foreground">{card.value}</p>
-              <p className="text-sm text-muted-foreground">{card.label}</p>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-2xl border border-border bg-card p-4">
+              <s.icon className={`mb-2 h-6 w-6 ${s.color}`} />
+              <p className="text-2xl font-bold text-foreground">{s.value}</p>
+              <p className="text-sm text-muted-foreground">{s.label}</p>
             </div>
-          );
-        })}
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Minhas solicitações recentes</h2>
+        {requests.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma solicitação ainda.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {requests.slice(0, 5).map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{r.total_items} item(s)</p>
+                  <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <Badge className={REQUEST_STATUS_COLORS[r.status as RequestStatus]}>
+                  {REQUEST_STATUS_LABELS[r.status as RequestStatus]}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

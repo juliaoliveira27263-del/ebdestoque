@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export function useUnreadNotifications() {
   const { profile, isAdmin } = useAuth();
 
-  return useQuery({
+  const { data: unreadCount = 0 } = useQuery({
     queryKey: ['unread-notifications', profile?.id, isAdmin],
     queryFn: async (): Promise<number> => {
       let query = supabase.from('notifications').select('id', { count: 'exact', head: true });
@@ -21,6 +21,8 @@ export function useUnreadNotifications() {
       return count ?? 0;
     },
     enabled: !!profile,
-    refetchInterval: 30000,
+    refetchInterval: 30_000,
   });
+
+  return { unreadCount };
 }

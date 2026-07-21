@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { Menu, Sun, Moon, Bell } from 'lucide-react';
+import { Menu, Bell, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
-import { cn } from '@/lib/utils';
+import { RippleButton } from '@/components/RippleButton';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -12,56 +13,45 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const { profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { unreadCount } = useUnreadNotifications();
   const navigate = useNavigate();
-  const { data: unreadCount = 0 } = useUnreadNotifications();
 
-  const firstName = profile?.name?.split(' ')[0] ?? 'Usuário';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onMenuClick}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <h2 className="text-lg font-semibold text-foreground">
-          {greeting}, <span className="text-primary">{firstName}</span>!
-        </h2>
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm">
+      <RippleButton variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
+        <Menu className="h-5 w-5" />
+      </RippleButton>
+
+      <div className="flex-1">
+        <p className="text-sm text-muted-foreground">{greeting},</p>
+        <h1 className="text-base font-bold text-foreground">{profile?.name ?? 'Usuário'}</h1>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={toggleTheme}
-          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </button>
+      <RippleButton variant="ghost" size="icon" onClick={toggleTheme}>
+        {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </RippleButton>
 
-        <button
-          onClick={() => navigate('/notifications')}
-          className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
+      <div className="relative">
+        <RippleButton variant="ghost" size="icon" onClick={() => navigate('/notifications')}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-              {unreadCount > 9 ? '9+' : unreadCount}
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
+              {unreadCount}
             </span>
           )}
-        </button>
-
-        <button
-          onClick={() => navigate('/profile')}
-          className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition-transform hover:scale-105'
-          )}
-        >
-          {profile?.name?.charAt(0).toUpperCase() ?? 'U'}
-        </button>
+        </RippleButton>
       </div>
+
+      <button onClick={() => navigate('/profile')} className="rounded-full">
+        <Avatar className="h-9 w-9">
+          <AvatarFallback className="bg-primary text-sm font-semibold text-primary-foreground">
+            {profile?.name?.charAt(0).toUpperCase() ?? '?'}
+          </AvatarFallback>
+        </Avatar>
+      </button>
     </header>
   );
 }
