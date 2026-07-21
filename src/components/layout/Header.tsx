@@ -1,81 +1,65 @@
-import { Menu, Moon, Sun, Bell } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
-import { ROLE_LABELS } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Menu, Sun, Moon, Bell } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
+import { cn } from '@/lib/utils';
 
 interface HeaderProps {
   onMenuClick: () => void;
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const { theme, toggleTheme } = useTheme();
   const { profile } = useAuth();
-  const { unreadCount } = useUnreadNotifications();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { data: unreadCount = 0 } = useUnreadNotifications();
 
-  if (!profile) return null;
-
-  const initials = profile.name
-    .split(' ')
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const firstName = profile?.name?.split(' ')[0] ?? 'Usuário';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md md:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 backdrop-blur-md">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div>
-          <h1 className="text-base font-bold text-foreground md:text-lg">
-            Olá, {profile.name.split(' ')[0]}
-          </h1>
-          <p className="hidden text-xs text-muted-foreground sm:block">
-            {ROLE_LABELS[profile.role]}
-          </p>
-        </div>
+        <h2 className="text-lg font-semibold text-foreground">
+          {greeting}, <span className="text-primary">{firstName}</span>!
+        </h2>
       </div>
 
       <div className="flex items-center gap-2">
         <button
           onClick={toggleTheme}
           className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Alternar tema"
         >
           {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
+
         <button
           onClick={() => navigate('/notifications')}
           className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Notificações"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-              {unreadCount > 99 ? '99+' : unreadCount}
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </button>
+
         <button
           onClick={() => navigate('/profile')}
-          className="flex items-center gap-2 rounded-lg p-1 pr-3 transition-colors hover:bg-muted"
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition-transform hover:scale-105'
+          )}
         >
-          <Avatar className="h-8 w-8 border border-border">
-            <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <span className="hidden text-sm font-medium text-foreground md:inline">
-            {profile.name}
-          </span>
+          {profile?.name?.charAt(0).toUpperCase() ?? 'U'}
         </button>
       </div>
     </header>

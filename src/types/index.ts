@@ -1,4 +1,4 @@
-import type { UserRole, RequestStatus, MovementType } from '@/lib/constants';
+export type UserRole = 'admin' | 'promotor' | 'supervisor' | 'vendedor';
 
 export interface Profile {
   id: string;
@@ -49,6 +49,8 @@ export interface Product {
   industry?: Industry | null;
 }
 
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
+
 export interface RequestItem {
   id: string;
   request_id: string;
@@ -72,6 +74,8 @@ export interface StockRequest {
   request_items?: RequestItem[];
 }
 
+export type MovementType = 'in' | 'out' | 'adjustment';
+
 export interface Movement {
   id: string;
   product_id: string;
@@ -94,4 +98,15 @@ export interface Notification {
   read: boolean;
   related_id: string | null;
   created_at: string;
+}
+
+export interface DashboardStats {
+  totalProducts: number;
+  lowStockCount: number;
+  pendingRequests: number;
+  totalIndustries: number;
+  totalUsers: number;
+  totalMovements: number;
+  stockByIndustry: { industry: string; stock: number }[];
+  requestsByStatus: { status: string; count: number }[];
 }

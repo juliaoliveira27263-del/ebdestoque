@@ -1,203 +1,196 @@
-import { useState } from 'react';
+import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { Plus, Trash2, Loader2, ShoppingBag } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { fetchProducts } from '@/services/products';
 import { fetchIndustries } from '@/services/industries';
 import { createRequestWithItems } from '@/services/requests';
-import { RippleButton } from '@/components/RippleButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { EmptyState } from '@/components/EmptyState';
-import { ErrorState } from '@/components/ErrorState';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { RippleButton } from '@/components/RippleButton';
+
+interface CartItem {
+  product_id: string;
+  product_name: string;
+  industry_id: string;
+  quantity: number;
+}
 
 export function NewRequestPage() {
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [items, setItems] = useState<{ product_id: string; quantity: number; industry_id?: string | null }[]>([]);
-  const [notes, setNotes] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [selectedIndustry, setSelectedIndustry] = useState('');
 
-  const { data: products = [], isLoading: productsLoading, error: productsError, refetch } = useQuery({
-    queryKey: ['products'],
-    queryFn: fetchProducts,
-  });
+  const [productId, setProductId] = React.useState('');
+  const [industryId, setIndustryId] = React.useState('');
+  const [quantity, setQuantity] = React.useState('1');
+  const [notes, setNotes] = React.useState('');
+  const [items, setItems] = React.useState<CartItem[]>([]);
 
-  const { data: industries = [] } = useQuery({
-    queryKey: ['industries'],
-    queryFn: fetchIndustries,
-  });
+  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: fetchProducts });
+  const { data: industries = [] } = useQuery({ queryKey: ['industries'], queryFn: fetchIndustries });
 
   const mutation = useMutation({
-    mutationFn: ({ items, notes }: { items: { product_id: string; quantity: number; industry_id?: string | null }[]; notes?: string }) =>
-      createRequestWithItems(items, notes),
+    mutationFn: async () => {
+      if (!profile) throw new Error('Usuário não autenticado');
+      if (items.length === 0) throw new Error('Adicione pelo menos um item');
+      await createRequestWithItems(
+        profile.id,
+        notes || null,
+        items.map((i) => ({ product_id: i.product_id, quantity: i.quantity, industry_id: i.industry_id || null }))
+      );
+    },
     onSuccess: () => {
+      toast.success('Solicitação criada com sucesso!');
       queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      toast.success('Solicitação enviada! O administrador foi notificado.');
       navigate('/requests');
     },
-    onError: (err: Error) => {
-      toast.error(err.message || 'Erro ao criar solicitação.');
-    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const addItem = () => {
-    if (!selectedProduct) return;
-    const industryId = selectedIndustry && selectedIndustry !== 'none' ? selectedIndustry : null;
-    const existing = items.find((i) => i.product_id === selectedProduct && (i.industry_id ?? null) === industryId);
-    if (existing) {
-      setItems(items.map((i) =>
-        i.product_id === selectedProduct && (i.industry_id ?? null) === industryId
-          ? { ...i, quantity: i.quantity + 1 }
-          : i
-      ));
-    } else {
-      setItems([...items, { product_id: selectedProduct, quantity: 1, industry_id: industryId }]);
+    if (!productId) {
+      toast.error('Selecione um produto');
+      return;
     }
-    setSelectedProduct('');
-    setSelectedIndustry('');
-  };
-
-  const updateQty = (index: number, qty: number) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    const qty = parseInt(quantity, 10);
     if (qty < 1) {
-      setItems(items.filter((_, i) => i !== index));
+      toast.error('Quantidade deve ser maior que zero');
       return;
     }
-    setItems(items.map((it, i) => (i === index ? { ...it, quantity: qty } : it)));
+    setItems((prev) => {
+      const existing = prev.find((i) => i.product_id === productId);
+      if (existing) {
+        return prev.map((i) =>
+          i.product_id === productId ? { ...i, quantity: i.quantity + qty } : i
+        );
+      }
+      return [
+        ...prev,
+        {
+          product_id: productId,
+          product_name: product.name,
+          industry_id: industryId,
+          quantity: qty,
+        },
+      ];
+    });
+    setProductId('');
+    setIndustryId('');
+    setQuantity('1');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (items.length === 0) {
-      toast.error('Adicione pelo menos um item.');
-      return;
-    }
-    mutation.mutate({ items, notes: notes || undefined });
+  const removeItem = (pid: string) => {
+    setItems((prev) => prev.filter((i) => i.product_id !== pid));
   };
 
-  if (productsError) {
-    return <ErrorState message={productsError.message} onRetry={() => refetch()} />;
-  }
-
-  const activeProducts = products.filter((p) => p.active);
+  const updateQty = (pid: string, qty: number) => {
+    if (qty < 1) return;
+    setItems((prev) => prev.map((i) => (i.product_id === pid ? { ...i, quantity: qty } : i)));
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Nova Solicitação</h2>
-        <p className="text-sm text-muted-foreground">Selecione os materiais que deseja solicitar do estoque.</p>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+          <ShoppingBag className="h-5 w-5 text-primary-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold text-foreground">Nova Solicitação</h1>
       </div>
 
-      {productsLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Produto</Label>
+            <Select value={productId} onValueChange={setProductId}>
+              <SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger>
+              <SelectContent>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Indústria</Label>
+            <Select value={industryId} onValueChange={setIndustryId}>
+              <SelectTrigger><SelectValue placeholder="Selecione uma indústria" /></SelectTrigger>
+              <SelectContent>
+                {industries.map((i) => (
+                  <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="qty">Quantidade</Label>
+            <Input id="qty" type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </div>
+          <div className="flex items-end">
+            <RippleButton type="button" variant="outline" className="w-full" onClick={addItem}>
+              <Plus className="h-4 w-4" />
+              Adicionar
+            </RippleButton>
+          </div>
         </div>
-      ) : activeProducts.length === 0 ? (
-        <EmptyState icon={Package} title="Nenhum produto disponível" description="Não há produtos ativos no momento." />
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm">
+      </div>
+
+      {items.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h3 className="mb-3 font-semibold text-foreground">Itens ({items.length})</h3>
           <div className="space-y-2">
-            <Label>Adicionar item</Label>
-            <div className="flex gap-2">
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Selecione um produto..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeProducts.map((p) => (
-                    <SelectItem key={p.id} value={p.id} disabled={p.stock_quantity <= 0}>
-                      {p.name} ({p.stock_quantity} {p.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Indústria (destino)..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem destino</SelectItem>
-                  {industries.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <RippleButton type="button" variant="outline" onClick={addItem} disabled={!selectedProduct}>
-                <Plus className="h-4 w-4" />
-              </RippleButton>
-            </div>
+            {items.map((item) => (
+              <div key={item.product_id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{item.product_name}</p>
+                  {item.industry_id && (
+                    <p className="text-xs text-muted-foreground">
+                      {industries.find((i) => i.id === item.industry_id)?.name ?? ''}
+                    </p>
+                  )}
+                </div>
+                <Input
+                  type="number"
+                  min="1"
+                  value={item.quantity}
+                  onChange={(e) => updateQty(item.product_id, parseInt(e.target.value, 10) || 1)}
+                  className="h-9 w-20"
+                />
+                <button onClick={() => removeItem(item.product_id)} className="rounded-md p-2 text-destructive hover:bg-destructive/10">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
           </div>
-
-          {items.length > 0 && (
-            <div className="space-y-2 rounded-lg border border-border p-3">
-              {items.map((item, index) => {
-                const product = products.find((p) => p.id === item.product_id);
-                const industry = industries.find((i) => i.id === item.industry_id);
-                return (
-                  <div key={index} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">
-                        {product?.name ?? 'Produto'}
-                      </div>
-                      {industry && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          Destino: {industry.name}
-                        </div>
-                      )}
-                    </div>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => updateQty(index, parseInt(e.target.value, 10) || 0)}
-                      className="h-8 w-20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => updateQty(index, 0)}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
-            <Textarea
-              id="notes"
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Informações adicionais..."
-            />
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <RippleButton type="button" variant="ghost" onClick={() => navigate('/home')}>
-              Cancelar
-            </RippleButton>
-            <RippleButton type="submit" disabled={mutation.isPending || items.length === 0}>
-              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Enviar Solicitação
-            </RippleButton>
-          </div>
-        </form>
+        </div>
       )}
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="space-y-1.5">
+          <Label htmlFor="notes">Observações</Label>
+          <Textarea id="notes" placeholder="Observações opcionais..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <RippleButton variant="outline" className="flex-1" onClick={() => navigate(-1)}>
+          Cancelar
+        </RippleButton>
+        <RippleButton
+          className="flex-1"
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending || items.length === 0}
+        >
+          {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Enviar solicitação
+        </RippleButton>
+      </div>
     </div>
   );
 }

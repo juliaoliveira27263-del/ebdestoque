@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/types';
-import type { UserRole } from '@/lib/constants';
+import type { Profile, UserRole } from '@/types';
 
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase
@@ -11,16 +10,23 @@ export async function fetchProfiles(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
+export interface ProfileUpdates {
+  name?: string;
+  role?: UserRole;
+  phone?: string | null;
+  active?: boolean;
+}
+
 export async function updateProfile(
   id: string,
-  input: { name?: string; role?: UserRole; phone?: string; active?: boolean }
+  updates: ProfileUpdates
 ): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
-    .update(input)
+    .update(updates)
     .eq('id', id)
     .select('*')
-    .single();
+    .maybeSingle();
   if (error) throw error;
   return data as Profile;
 }

@@ -13,8 +13,8 @@ export default defineConfig({
         name: 'EBD Petrolina - Gestão de Estoque',
         short_name: 'EBD Petrolina',
         description: 'Sistema de gestão de estoque e solicitações',
-        theme_color: '#0f766e',
-        background_color: '#0f172a',
+        theme_color: '#dc2626',
+        background_color: '#0a0a0a',
         display: 'standalone',
         start_url: '/',
         icons: [
@@ -35,5 +35,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  build: {
+    chunkSizeWarningLimit: 800,
   },
 });

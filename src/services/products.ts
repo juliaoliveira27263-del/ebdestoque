@@ -5,28 +5,33 @@ export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products')
     .select('*, category:categories(*), industry:industries(*)')
-    .order('name', { ascending: true });
+    .order('name');
   if (error) throw error;
   return (data ?? []) as Product[];
 }
 
-export async function createProduct(input: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>): Promise<Product> {
+export async function createProduct(
+  product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>
+): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
-    .insert(input)
-    .select('*')
-    .single();
+    .insert(product)
+    .select('*, category:categories(*), industry:industries(*)')
+    .maybeSingle();
   if (error) throw error;
   return data as Product;
 }
 
-export async function updateProduct(id: string, input: Partial<Product>): Promise<Product> {
+export async function updateProduct(
+  id: string,
+  updates: Partial<Omit<Product, 'id' | 'created_at' | 'updated_at'>>
+): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
-    .update(input)
+    .update(updates)
     .eq('id', id)
-    .select('*')
-    .single();
+    .select('*, category:categories(*), industry:industries(*)')
+    .maybeSingle();
   if (error) throw error;
   return data as Product;
 }
@@ -36,12 +41,15 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function adjustStock(productId: string, quantity: number, reason: string): Promise<Product> {
-  const { data, error } = await supabase.rpc('adjust_stock', {
+export async function adjustStock(
+  productId: string,
+  quantity: number,
+  reason: string
+): Promise<void> {
+  const { error } = await supabase.rpc('adjust_stock', {
     p_product_id: productId,
     p_quantity: quantity,
     p_reason: reason,
   });
   if (error) throw error;
-  return data as Product;
 }

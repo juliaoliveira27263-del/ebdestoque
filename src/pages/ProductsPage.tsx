@@ -1,398 +1,275 @@
-import { useState, useMemo } from 'react';
+import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Package, Plus, Search, Loader2, Pencil, Trash2, ArrowUpDown,
-} from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  fetchProducts, createProduct, updateProduct, deleteProduct, adjustStock,
-} from '@/services/products';
+import { Plus, Search, Pencil, Trash2, Package, Loader2, AlertTriangle } from 'lucide-react';
+import { fetchProducts, createProduct, updateProduct, deleteProduct, adjustStock } from '@/services/products';
 import { fetchIndustries } from '@/services/industries';
-import { RippleButton } from '@/components/RippleButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { RippleButton } from '@/components/RippleButton';
 import { EmptyState } from '@/components/EmptyState';
-import { ErrorState } from '@/components/ErrorState';
 import { cn } from '@/lib/utils';
-import type { Product, Industry } from '@/types';
+import type { Product } from '@/types';
 
 interface FormState {
-  name: string; description: string; sku: string; category_id: string;
-  stock_quantity: string; min_stock: string; unit: string; industry_id: string; active: boolean;
+  name: string;
+  sku: string;
+  stock_quantity: string;
+  min_stock: string;
+  unit: string;
+  industry_id: string;
+  description: string;
 }
 
 const emptyForm: FormState = {
-  name: '', description: '', sku: '', category_id: '', stock_quantity: '0',
-  min_stock: '0', unit: 'un', industry_id: '', active: true,
+  name: '',
+  sku: '',
+  stock_quantity: '0',
+  min_stock: '0',
+  unit: 'un',
+  industry_id: '',
+  description: '',
 };
 
 export function ProductsPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-  const [industryFilter, setIndustryFilter] = useState('all');
-  const [editTarget, setEditTarget] = useState<Product | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [adjustTarget, setAdjustTarget] = useState<Product | null>(null);
+  const [search, setSearch] = React.useState('');
+  const [industryFilter, setIndustryFilter] = React.useState('all');
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [deleteId, setDeleteId] = React.useState<string | null>(null);
+  const [adjustOpen, setAdjustOpen] = React.useState(false);
+  const [adjustId, setAdjustId] = React.useState<string | null>(null);
+  const [adjustQty, setAdjustQty] = React.useState('');
+  const [adjustReason, setAdjustReason] = React.useState('');
+  const [form, setForm] = React.useState<FormState>(emptyForm);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
 
-  const { data: products = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['products'],
-    queryFn: fetchProducts,
-  });
+  const { data: products = [], isLoading } = useQuery({ queryKey: ['products'], queryFn: fetchProducts });
   const { data: industries = [] } = useQuery({ queryKey: ['industries'], queryFn: fetchIndustries });
 
-  const filtered = useMemo(() => products.filter((p) => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku ?? '').toLowerCase().includes(search.toLowerCase());
-    const matchIndustry = industryFilter === 'all' || p.industry_id === industryFilter;
-    return matchSearch && matchIndustry;
-  }), [products, search, industryFilter]);
-
-  const invalidateProducts = () => {
-    queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-  };
-
   const createMutation = useMutation({
-    mutationFn: (input: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>) => createProduct(input),
-    onSuccess: () => { invalidateProducts(); toast.success('Produto criado com sucesso!'); setCreateOpen(false); },
-    onError: (err: Error) => toast.error(err.message || 'Erro ao criar produto.'),
+    mutationFn: (p: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'category' | 'industry'>) => createProduct(p),
+    onSuccess: () => { toast.success('Produto criado!'); queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: Partial<Product> }) => updateProduct(id, input),
-    onSuccess: () => { invalidateProducts(); toast.success('Produto atualizado!'); setEditTarget(null); },
-    onError: (err: Error) => toast.error(err.message || 'Erro ao atualizar produto.'),
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Product> }) => updateProduct(id, updates),
+    onSuccess: () => { toast.success('Produto atualizado!'); queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteProduct(id),
-    onSuccess: () => { invalidateProducts(); toast.success('Produto excluído.'); setDeleteTarget(null); },
-    onError: (err: Error) => toast.error(err.message || 'Erro ao excluir produto.'),
+    onSuccess: () => { toast.success('Produto excluído!'); queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const adjustMutation = useMutation({
     mutationFn: ({ id, qty, reason }: { id: string; qty: number; reason: string }) => adjustStock(id, qty, reason),
-    onSuccess: () => {
-      invalidateProducts();
-      queryClient.invalidateQueries({ queryKey: ['movements'] });
-      toast.success('Estoque ajustado!'); setAdjustTarget(null);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Erro ao ajustar estoque.'),
+    onSuccess: () => { toast.success('Estoque ajustado!'); queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
-  if (error) {
-    return <ErrorState message={error.message} onRetry={() => refetch()} />;
+  const filtered = products.filter((p) => {
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchIndustry = industryFilter === 'all' || p.industry_id === industryFilter;
+    return matchSearch && matchIndustry;
+  });
+
+  const openCreate = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (p: Product) => {
+    setForm({
+      name: p.name,
+      sku: p.sku ?? '',
+      stock_quantity: String(p.stock_quantity),
+      min_stock: String(p.min_stock),
+      unit: p.unit,
+      industry_id: p.industry_id ?? '',
+      description: p.description ?? '',
+    });
+    setEditingId(p.id);
+    setDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim()) { toast.error('Nome é obrigatório'); return; }
+    const payload = {
+      name: form.name.trim(),
+      sku: form.sku.trim() || null,
+      stock_quantity: parseInt(form.stock_quantity, 10) || 0,
+      min_stock: parseInt(form.min_stock, 10) || 0,
+      unit: form.unit,
+      industry_id: form.industry_id || null,
+      description: form.description.trim() || null,
+      category_id: null,
+      image_url: null,
+      active: true,
+    };
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, updates: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
+    setDialogOpen(false);
+  };
+
+  const openAdjust = (id: string) => {
+    setAdjustId(id);
+    setAdjustQty('');
+    setAdjustReason('');
+    setAdjustOpen(true);
+  };
+
+  const handleAdjust = () => {
+    if (!adjustId) return;
+    const qty = parseInt(adjustQty, 10);
+    if (isNaN(qty) || qty === 0) { toast.error('Quantidade inválida'); return; }
+    adjustMutation.mutate({ id: adjustId, qty, reason: adjustReason || 'Ajuste manual' });
+    setAdjustOpen(false);
+  };
+
+  if (isLoading) {
+    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Produtos</h2>
-          <p className="text-sm text-muted-foreground">Gerencie o catálogo de produtos e estoque</p>
-        </div>
-        <RippleButton onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" /> Novo Produto
-        </RippleButton>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Produtos</h1>
+        <RippleButton onClick={openCreate}><Plus className="h-4 w-4" />Novo produto</RippleButton>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="relative min-w-48 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar por nome ou SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Buscar produto..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={industryFilter} onValueChange={setIndustryFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Indústria" />
-          </SelectTrigger>
+          <SelectTrigger className="sm:w-48"><SelectValue placeholder="Indústria" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as indústrias</SelectItem>
-            {industries.map((i) => (
-              <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-            ))}
+            <SelectItem value="all">Todas</SelectItem>
+            {industries.map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 rounded-xl shimmer" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Package}
-          title="Nenhum produto encontrado"
-          description="Cadastre um novo produto para começar."
-          action={<RippleButton onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />Novo Produto</RippleButton>}
-        />
+      {filtered.length === 0 ? (
+        <EmptyState icon={Package} title="Nenhum produto" description="Crie seu primeiro produto para começar." action={<RippleButton onClick={openCreate}><Plus className="h-4 w-4" />Novo produto</RippleButton>} />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30 text-left text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Produto</th>
-                <th className="px-4 py-3 font-medium">SKU</th>
-                <th className="px-4 py-3 text-right font-medium">Estoque</th>
-                <th className="px-4 py-3 text-right font-medium">Mínimo</th>
-                <th className="px-4 py-3 font-medium">Indústria</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
+            <thead className="border-b border-border bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold text-foreground">Nome</th>
+                <th className="px-4 py-3 text-left font-semibold text-foreground">Estoque</th>
+                <th className="px-4 py-3 text-left font-semibold text-foreground">Indústria</th>
+                <th className="px-4 py-3 text-right font-semibold text-foreground">Ações</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((p) => {
-                const isLow = p.stock_quantity < p.min_stock;
-                return (
-                  <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{p.name}</div>
-                      {p.description && <div className="text-xs text-muted-foreground line-clamp-1">{p.description}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.sku ?? '-'}</td>
-                    <td className={cn('px-4 py-3 text-right font-semibold', isLow ? 'text-destructive' : 'text-foreground')}>
-                      {p.stock_quantity} {p.unit}
-                    </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{p.min_stock} {p.unit}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.industry?.name ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      {isLow ? (
-                        <Badge className="bg-destructive/15 text-destructive">Estoque baixo</Badge>
-                      ) : p.active ? (
-                        <Badge className="bg-success/15 text-success">Ativo</Badge>
-                      ) : (
-                        <Badge className="bg-muted text-muted-foreground">Inativo</Badge>
+            <tbody className="divide-y divide-border">
+              {filtered.map((p) => (
+                <tr key={p.id} className="hover:bg-muted/30">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-foreground">{p.name}</p>
+                    {p.sku && <p className="text-xs text-muted-foreground">{p.sku}</p>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('font-semibold', p.stock_quantity < p.min_stock ? 'text-destructive' : 'text-foreground')}>
+                        {p.stock_quantity} {p.unit}
+                      </span>
+                      {p.stock_quantity < p.min_stock && (
+                        <Badge variant="destructive" className="flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Baixo</Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <RippleButton size="icon" variant="ghost" onClick={() => setAdjustTarget(p)} title="Ajustar estoque">
-                          <ArrowUpDown className="h-4 w-4" />
-                        </RippleButton>
-                        <RippleButton size="icon" variant="ghost" onClick={() => setEditTarget(p)} title="Editar">
-                          <Pencil className="h-4 w-4" />
-                        </RippleButton>
-                        <RippleButton size="icon" variant="ghost" onClick={() => setDeleteTarget(p)} title="Excluir">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </RippleButton>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Mín: {p.min_stock}</p>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{p.industry?.name ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      <RippleButton variant="ghost" size="icon" onClick={() => openAdjust(p.id)} title="Ajustar estoque"><Package className="h-4 w-4" /></RippleButton>
+                      <RippleButton variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar"><Pencil className="h-4 w-4" /></RippleButton>
+                      <RippleButton variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} title="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></RippleButton>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {createOpen && (
-        <ProductDialog
-          industries={industries}
-          onClose={() => setCreateOpen(false)}
-          onSubmit={(form) => createMutation.mutate({
-            name: form.name, description: form.description || null, sku: form.sku || null,
-            category_id: form.category_id || null, stock_quantity: parseInt(form.stock_quantity, 10) || 0,
-            min_stock: parseInt(form.min_stock, 10) || 0, unit: form.unit,
-            industry_id: form.industry_id || null, active: form.active, image_url: null,
-          })}
-          loading={createMutation.isPending}
-        />
-      )}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingId ? 'Editar produto' : 'Novo produto'}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="name">Nome *</Label>
+              <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="space-y-1.5"><Label htmlFor="sku">SKU</Label><Input id="sku" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="unit">Unidade</Label><Input id="unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="stock">Estoque atual</Label><Input id="stock" type="number" value={form.stock_quantity} onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="min">Estoque mínimo</Label><Input id="min" type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} /></div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Indústria</Label>
+              <Select value={form.industry_id} onValueChange={(v) => setForm({ ...form, industry_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>{industries.map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="desc">Descrição</Label><Textarea id="desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <RippleButton variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</RippleButton>
+            <RippleButton onClick={handleSave}>{editingId ? 'Salvar' : 'Criar'}</RippleButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {editTarget && (
-        <ProductDialog
-          product={editTarget}
-          industries={industries}
-          onClose={() => setEditTarget(null)}
-          onSubmit={(form) => updateMutation.mutate({
-            id: editTarget.id,
-            input: {
-              name: form.name, description: form.description || null, sku: form.sku || null,
-              category_id: form.category_id || null, stock_quantity: parseInt(form.stock_quantity, 10) || 0,
-              min_stock: parseInt(form.min_stock, 10) || 0, unit: form.unit,
-              industry_id: form.industry_id || null, active: form.active,
-            },
-          })}
-          loading={updateMutation.isPending}
-        />
-      )}
+      <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Ajustar estoque</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="adjust-qty">Quantidade (+ ou -)</Label>
+              <Input id="adjust-qty" type="number" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} placeholder="ex: 10 ou -5" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="adjust-reason">Motivo</Label>
+              <Input id="adjust-reason" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Motivo do ajuste" />
+            </div>
+          </div>
+          <DialogFooter>
+            <RippleButton variant="outline" onClick={() => setAdjustOpen(false)}>Cancelar</RippleButton>
+            <RippleButton onClick={handleAdjust}>Ajustar</RippleButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {adjustTarget && (
-        <AdjustDialog
-          product={adjustTarget}
-          onClose={() => setAdjustTarget(null)}
-          onSubmit={(qty, reason) => adjustMutation.mutate({ id: adjustTarget.id, qty, reason })}
-          loading={adjustMutation.isPending}
-        />
-      )}
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
-            <AlertDialogDescription>
-              "{deleteTarget?.name}" será removido permanentemente. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => { if (deleteId) deleteMutation.mutate(deleteId); setDeleteId(null); }}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-interface ProductDialogProps {
-  product?: Product;
-  industries: Industry[];
-  onClose: () => void;
-  onSubmit: (form: FormState) => void;
-  loading: boolean;
-}
-
-function ProductDialog({ product, industries, onClose, onSubmit, loading }: ProductDialogProps) {
-  const [form, setForm] = useState<FormState>(product ? {
-    name: product.name, description: product.description ?? '', sku: product.sku ?? '',
-    category_id: product.category_id ?? '', stock_quantity: String(product.stock_quantity),
-    min_stock: String(product.min_stock), unit: product.unit,
-    industry_id: product.industry_id ?? '', active: product.active,
-  } : emptyForm);
-
-  const set = (k: keyof FormState, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) { toast.error('Informe o nome do produto.'); return; }
-    onSubmit(form);
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-90vh overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{product ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
-          <DialogDescription>{product ? 'Atualize as informações do produto.' : 'Cadastre um novo produto no estoque.'}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome *</Label>
-            <Input id="name" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Nome do produto" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
-            <Textarea id="description" rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Descrição opcional" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input id="sku" value={form.sku} onChange={(e) => set('sku', e.target.value)} placeholder="Código SKU" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unit">Unidade</Label>
-              <Input id="unit" value={form.unit} onChange={(e) => set('unit', e.target.value)} placeholder="un, kg, L..." />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="stock">Estoque</Label>
-              <Input id="stock" type="number" min={0} value={form.stock_quantity} onChange={(e) => set('stock_quantity', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="min_stock">Estoque Mínimo</Label>
-              <Input id="min_stock" type="number" min={0} value={form.min_stock} onChange={(e) => set('min_stock', e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Indústria</Label>
-            <Select value={form.industry_id || 'none'} onValueChange={(v) => set('industry_id', v === 'none' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem indústria</SelectItem>
-                {industries.map((i) => (<SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <Label htmlFor="active" className="text-sm font-medium">Produto ativo</Label>
-            <Switch id="active" checked={form.active} onCheckedChange={(v) => set('active', v)} />
-          </div>
-          <DialogFooter>
-            <RippleButton type="button" variant="ghost" onClick={onClose}>Cancelar</RippleButton>
-            <RippleButton type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {product ? 'Salvar' : 'Criar'}
-            </RippleButton>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface AdjustDialogProps {
-  product: Product;
-  onClose: () => void;
-  onSubmit: (qty: number, reason: string) => void;
-  loading: boolean;
-}
-
-function AdjustDialog({ product, onClose, onSubmit, loading }: AdjustDialogProps) {
-  const [qty, setQty] = useState('');
-  const [reason, setReason] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const n = parseInt(qty, 10);
-    if (isNaN(n) || n === 0) { toast.error('Informe uma quantidade válida (positiva para entrada, negativa para saída).'); return; }
-    onSubmit(n, reason || 'Ajuste manual');
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Ajustar Estoque</DialogTitle>
-          <DialogDescription>{product.name} — Atual: {product.stock_quantity} {product.unit}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="qty">Quantidade (use negativo para saída)</Label>
-            <Input id="qty" type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Ex: 10 ou -5" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reason">Motivo</Label>
-            <Textarea id="reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: Inventário, perda, correção..." />
-          </div>
-          <DialogFooter>
-            <RippleButton type="button" variant="ghost" onClick={onClose}>Cancelar</RippleButton>
-            <RippleButton type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Confirmar Ajuste
-            </RippleButton>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

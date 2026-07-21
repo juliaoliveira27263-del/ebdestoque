@@ -1,7 +1,7 @@
+import type { UserRole, RequestStatus, MovementType } from '@/types';
+
 export const APP_NAME = 'EBD Petrolina';
 export const APP_SUBTITLE = 'Gestão de Estoque';
-
-export type UserRole = 'admin' | 'promotor' | 'supervisor' | 'vendedor';
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrador',
@@ -17,8 +17,6 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   vendedor: 'bg-muted text-muted-foreground',
 };
 
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
-
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   pending: 'Pendente',
   approved: 'Aprovado',
@@ -32,8 +30,6 @@ export const REQUEST_STATUS_COLORS: Record<RequestStatus, string> = {
   rejected: 'bg-destructive/15 text-destructive',
   fulfilled: 'bg-secondary text-secondary-foreground',
 };
-
-export type MovementType = 'in' | 'out' | 'adjustment';
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   in: 'Entrada',
