@@ -4,11 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 })
 
 export type Profile = {
@@ -47,20 +43,13 @@ export type Product = {
   industry_id: string
 }
 
-export type Request = {
+export type Movement = {
   id: string
-  user_id: string
-  status: string
-  notes: string | null
-  total_items: number
-  created_at: string
-  updated_at: string
-}
-
-export type RequestItem = {
-  id: string
-  request_id: string
-  product_id: string
+  type: string
   quantity: number
-  industry_id: string
+  reason: string | null
+  created_at: string
+  product_id: string
+  user_id: string | null
+  request_id: string | null
 }

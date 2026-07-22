@@ -19,14 +19,17 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="w-8 h-8 border-3 border-ebd-700 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl gradient-ebd flex items-center justify-center">
+            <span className="text-white font-bold text-lg">E</span>
+          </div>
+          <div className="w-6 h-6 border-2 border-ebd-700 border-t-transparent rounded-full animate-spin"></div>
+        </div>
       </div>
     )
   }
 
-  if (!session || !profile) {
-    return <Login />
-  }
+  if (!session || !profile) return <Login />
 
   const isAdmin = profile.role === 'admin'
 

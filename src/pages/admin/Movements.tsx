@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeftRight, Loader2, Plus, Minus, X } from 'lucide-react'
+import { ArrowLeftRight, Loader2, Plus, Minus, X, ArrowUp, ArrowDown } from 'lucide-react'
 
 type Movement = {
   id: string; type: string; quantity: number; reason: string | null; created_at: string; product_id: string
@@ -43,42 +43,42 @@ export default function Movements() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-ebd-700 animate-spin" /></div>
 
   return (
-    <div className="animate-fadeIn">
+    <div className="animate-fade-in">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-neutral-900">Movimentações</h2>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-ebd-700 hover:bg-ebd-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-ebd-700/20"><Plus className="w-4 h-4" /> Nova Movimentação</button>
+        <div><h2 className="text-2xl font-bold text-neutral-900">Movimentacoes</h2><p className="text-sm text-neutral-500 mt-1">{movements.length} movimentacoes registradas</p></div>
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 gradient-ebd hover:opacity-90 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-ebd"><Plus className="w-4 h-4" /> Nova Movimentacao</button>
       </div>
 
       <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-card">
         {movements.length === 0 ? (
-          <div className="text-center py-12 text-neutral-400"><ArrowLeftRight className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>Nenhuma movimentação registrada</p></div>
+          <div className="text-center py-16 text-neutral-400"><ArrowLeftRight className="w-12 h-12 mx-auto mb-3 opacity-40" /><p className="font-medium">Nenhuma movimentacao registrada</p></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-neutral-50 border-b border-neutral-200">
                 <tr>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase px-4 py-3">Produto</th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase px-4 py-3">Tipo</th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase px-4 py-3">Qtd</th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase px-4 py-3 hidden sm:table-cell">Motivo</th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase px-4 py-3 hidden sm:table-cell">Usuário</th>
-                  <th className="text-left text-xs font-medium text-neutral-500 uppercase px-4 py-3">Data</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-5 py-3.5">Produto</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-5 py-3.5">Tipo</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-5 py-3.5">Qtd</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-5 py-3.5 hidden sm:table-cell">Motivo</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-5 py-3.5 hidden sm:table-cell">Usuario</th>
+                  <th className="text-left text-xs font-semibold text-neutral-500 uppercase px-5 py-3.5">Data</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {movements.map((m) => (
-                  <tr key={m.id} className="hover:bg-neutral-50">
-                    <td className="px-4 py-3 text-sm text-neutral-900">{m.products?.name ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${m.type === 'in' ? 'bg-success-100 text-success-700' : 'bg-error-100 text-error-700'}`}>
-                        {m.type === 'in' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                        {m.type === 'in' ? 'Entrada' : 'Saída'}
+                  <tr key={m.id} className="hover:bg-neutral-50 transition-colors">
+                    <td className="px-5 py-3 text-sm font-medium text-neutral-900">{m.products?.name ?? '—'}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${m.type === 'in' ? 'bg-success-100 text-success-700' : 'bg-error-100 text-error-700'}`}>
+                        {m.type === 'in' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                        {m.type === 'in' ? 'Entrada' : 'Saida'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-neutral-900">{m.quantity}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-500 hidden sm:table-cell">{m.reason ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-500 hidden sm:table-cell">{m.profiles?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-5 py-3 text-sm font-semibold text-neutral-900">{m.quantity}</td>
+                    <td className="px-5 py-3 text-sm text-neutral-500 hidden sm:table-cell">{m.reason ?? '—'}</td>
+                    <td className="px-5 py-3 text-sm text-neutral-500 hidden sm:table-cell">{m.profiles?.name ?? '—'}</td>
+                    <td className="px-5 py-3 text-sm text-neutral-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -88,20 +88,20 @@ export default function Movements() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md animate-scaleIn" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold text-neutral-900">Nova Movimentação</h3><button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-neutral-100"><X className="w-5 h-5 text-neutral-400" /></button></div>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5"><h3 className="text-lg font-semibold text-neutral-900">Nova Movimentacao</h3><button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-neutral-100"><X className="w-5 h-5 text-neutral-400" /></button></div>
             <form onSubmit={handleSubmit} className="space-y-3">
-              <select required value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none bg-white">
+              <select required value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none bg-white">
                 <option value="">Selecione o produto</option>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
               </select>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none bg-white">
-                <option value="in">Entrada</option><option value="out">Saída</option>
+              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none bg-white">
+                <option value="in">Entrada</option><option value="out">Saida</option>
               </select>
-              <input type="number" min={1} required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })} placeholder="Quantidade" className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none" />
-              <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Motivo" className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none" />
-              <button type="submit" className="w-full bg-ebd-700 hover:bg-ebd-800 text-white font-medium py-2.5 rounded-lg transition-all">Registrar</button>
+              <input type="number" min={1} required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })} placeholder="Quantidade" className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none" />
+              <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Motivo" className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none" />
+              <button type="submit" className="w-full gradient-ebd hover:opacity-90 text-white font-medium py-2.5 rounded-xl transition-all shadow-ebd">Registrar</button>
             </form>
           </div>
         </div>

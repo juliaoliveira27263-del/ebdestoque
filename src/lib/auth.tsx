@@ -24,13 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.session) fetchProfile(data.session.user.id)
       else setLoading(false)
     })
-
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       setSession(sess)
       if (sess) fetchProfile(sess.user.id)
       else { setProfile(null); setLoading(false) }
     })
-
     return () => listener.subscription.unsubscribe()
   }, [])
 
@@ -47,8 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut()
-    setProfile(null)
-    setSession(null)
+    setProfile(null); setSession(null)
   }
 
   return (
