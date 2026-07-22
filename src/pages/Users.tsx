@@ -1,352 +1,198 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Users as UsersIcon, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { toast } from 'sonner';
-import Modal from '../components/Modal';
-import Badge from '../components/Badge';
 import type { Profile, UserRole } from '../lib/types';
 import { roleLabels } from '../lib/types';
-
-interface UserFormData {
-  name: string;
-  email: string;
-  role: UserRole;
-  phone: string;
-  city: string;
-}
-
-const emptyForm: UserFormData = {
-  name: '',
-  email: '',
-  role: 'vendedor',
-  phone: '',
-  city: '',
-};
+import Modal from '../components/Modal';
+import Badge from '../components/Badge';
+import { Plus, Pencil, Trash2, Users as UsersIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Users() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<UserFormData>(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<Profile | null>(null);
+
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'non_admin' as UserRole,
+  });
+
+  async function fetchData() {
+    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    setUsers((data as Profile[]) || []);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    fetchUsers();
+    fetchData();
   }, []);
 
-  async function fetchUsers() {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setUsers((data as Profile[] | null) ?? []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Erro ao carregar usuários');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function openCreate() {
-    setEditingId(null);
-    setForm(emptyForm);
+    setEditing(null);
+    setForm({ name: '', email: '', password: '', role: 'non_admin' });
     setModalOpen(true);
   }
 
-  function openEdit(user: Profile) {
-    setEditingId(user.id);
-    setForm({
-      name: user.name,
-      email: '',
-      role: user.role,
-      phone: user.phone ?? '',
-      city: user.city ?? '',
-    });
+  function openEdit(u: Profile) {
+    setEditing(u);
+    setForm({ name: u.name, email: u.email, password: '', role: u.role });
     setModalOpen(true);
-  }
-
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSaving(true);
-    try {
-      if (editingId) {
-        // Edit existing user - update profile
-        const payload = {
-          name: form.name,
-          role: form.role,
-          phone: form.phone || null,
-          city: form.city || null,
-        };
-        const { error } = await supabase.from('profiles').update(payload).eq('id', editingId);
-        if (error) throw error;
-        toast.success('Usuário atualizado com sucesso');
+    if (editing) {
+      const { error } = await supabase.from('profiles').update({
+        name: form.name,
+        role: form.role,
+      }).eq('id', editing.id);
+      if (error) toast.error(error.message);
+      else toast.success('Usuário atualizado');
+    } else {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || 'Erro ao criar usuário');
       } else {
-        // Create new user via edge function
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ''}`,
-            },
-            body: JSON.stringify({
-              name: form.name,
-              email: form.email,
-              role: form.role,
-              phone: form.phone,
-              city: form.city,
-            }),
-          },
-        );
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({})) as { error?: string };
-          throw new Error(errData.error ?? 'Erro ao criar usuário');
-        }
-
-        toast.success('Usuário criado com sucesso');
+        toast.success('Usuário criado');
       }
-      setModalOpen(false);
-      fetchUsers();
-    } catch (error) {
-      console.error('Error saving user:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao salvar usuário');
-    } finally {
-      setSaving(false);
     }
+    setModalOpen(false);
+    fetchData();
   }
 
-  async function toggleActive(user: Profile) {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ active: !user.active })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, active: !u.active } : u)),
-      );
-      toast.success(user.active ? 'Usuário desativado' : 'Usuário ativado');
-    } catch (error) {
-      console.error('Error toggling user active:', error);
-      toast.error('Erro ao atualizar usuário');
-    }
+  async function handleToggleActive(u: Profile) {
+    const { error } = await supabase.from('profiles').update({ active: !u.active }).eq('id', u.id);
+    if (error) toast.error(error.message);
+    else toast.success(u.active ? 'Usuário desativado' : 'Usuário ativado');
+    fetchData();
   }
 
-  function badgeVariant(role: UserRole): 'default' | 'success' | 'warning' | 'error' | 'info' {
-    switch (role) {
-      case 'admin':
-        return 'error';
-      case 'supervisor':
-        return 'warning';
-      case 'promotor':
-        return 'info';
-      case 'vendedor':
-        return 'default';
-      default:
-        return 'default';
-    }
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Usuários</h1>
-          <p className="text-dark-400 mt-1">Gerencie os usuários do sistema</p>
-        </div>
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Usuários</h1>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
         >
-          <Plus size={18} /> Novo usuário
+          <Plus className="w-4 h-4" />
+          Novo Usuário
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-dark-400">Carregando...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-dark-950 border-b border-dark-800">
-                <tr>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Nome</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Perfil</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Telefone</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Cidade</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Status</th>
-                  <th className="text-right px-4 py-3 text-sm font-medium text-dark-400">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-dark-800">
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-dark-400">
-                      <UsersIcon size={32} className="mx-auto mb-2 text-dark-600" />
-                      Nenhum usuário encontrado
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((user) => (
-                    <tr key={user.id} className="hover:bg-dark-950">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {user.avatar_url ? (
-                            <img
-                              src={user.avatar_url}
-                              alt={user.name}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-dark-800 flex items-center justify-center text-dark-400 text-sm font-bold">
-                              {user.name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="text-white">{user.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {user.role === 'admin' && <Shield size={14} className="text-red-400" />}
-                          <Badge variant={badgeVariant(user.role as UserRole)}>
-                            {roleLabels[user.role as UserRole]}
-                          </Badge>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-dark-400">{user.phone ?? '-'}</td>
-                      <td className="px-4 py-3 text-dark-400">{user.city ?? '-'}</td>
-                      <td className="px-4 py-3">
-                        {user.active ? (
-                          <Badge variant="success">Ativo</Badge>
-                        ) : (
-                          <Badge variant="error">Inativo</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => openEdit(user)}
-                            className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded transition"
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            onClick={() => toggleActive(user)}
-                            className="p-2 text-dark-400 hover:text-amber-400 hover:bg-dark-800 rounded transition"
-                            title={user.active ? 'Desativar' : 'Ativar'}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Nome</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">E-mail</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Perfil</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Status</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {users.map((u) => (
+              <tr key={u.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-sm text-slate-900">
+                  <div className="flex items-center gap-2">
+                    <UsersIcon className="w-4 h-4 text-slate-400" />
+                    {u.name}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-500">{u.email}</td>
+                <td className="px-4 py-3">
+                  <Badge variant={u.role === 'admin' ? 'info' : 'default'}>
+                    {roleLabels[u.role as UserRole]}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  {u.active ? <Badge variant="success">Ativo</Badge> : <Badge variant="error">Inativo</Badge>}
+                </td>
+                <td className="px-4 py-3 flex gap-2 justify-end">
+                  <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleToggleActive(u)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-600">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Modal */}
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editingId ? 'Editar usuário' : 'Novo usuário'}
-        maxWidth="lg"
-      >
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Usuário' : 'Novo Usuário'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-dark-400 mb-1">Nome *</label>
+            <label className="block text-sm text-slate-700 mb-1">Nome</label>
             <input
               type="text"
-              name="name"
-              required
               value={form.name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
+              required
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-primary-500 focus:outline-none"
             />
           </div>
-          {!editingId && (
+          <div>
+            <label className="block text-sm text-slate-700 mb-1">E-mail</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, email: e.target.value })}
+              required
+              disabled={!!editing}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-primary-500 focus:outline-none disabled:bg-slate-100"
+            />
+          </div>
+          {!editing && (
             <div>
-              <label className="block text-sm text-dark-400 mb-1">Email *</label>
+              <label className="block text-sm text-slate-700 mb-1">Senha</label>
               <input
-                type="email"
-                name="email"
+                type="password"
+                value={form.password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, password: e.target.value })}
                 required
-                value={form.email}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-primary-500 focus:outline-none"
               />
             </div>
           )}
           <div>
-            <label className="block text-sm text-dark-400 mb-1">Perfil *</label>
+            <label className="block text-sm text-slate-700 mb-1">Perfil</label>
             <select
-              name="role"
-              required
               value={form.role}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, role: e.target.value as UserRole })}
+              required
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-primary-500 focus:outline-none"
             >
-              {(Object.keys(roleLabels) as UserRole[]).map((role) => (
-                <option key={role} value={role}>{roleLabels[role]}</option>
-              ))}
+              <option value="non_admin">Usuário</option>
+              <option value="admin">Administrador</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm text-dark-400 mb-1">Telefone</label>
-            <input
-              type="text"
-              name="phone"
-              value={form.phone}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-dark-400 mb-1">Cidade</label>
-            <input
-              type="text"
-              name="city"
-              value={form.city}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="px-4 py-2 bg-dark-800 text-white rounded-lg hover:bg-dark-700 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
-            >
-              {saving ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
+          <button type="submit" className="w-full py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700">
+            {editing ? 'Salvar' : 'Criar'}
+          </button>
         </form>
       </Modal>
     </div>
