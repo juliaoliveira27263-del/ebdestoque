@@ -3,7 +3,7 @@ import { User, Mail, Phone, MapPin, Calendar, Camera, Lock, Pencil, Save, X } fr
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { supabase } from '../lib/supabase';
-import { roleLabels } from '../lib/types';
+import { roleLabels, UserRole } from '../lib/types';
 import { toast } from 'sonner';
 
 export default function MeuPerfil() {
@@ -14,8 +14,8 @@ export default function MeuPerfil() {
   const [editModal, setEditModal] = useState(false);
   const [passwordModal, setPasswordModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', phone: '', city: '' });
-  const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
+  const [editForm, setEditForm] = useState<{ name: string; phone: string; city: string }>({ name: '', phone: '', city: '' });
+  const [passwordForm, setPasswordForm] = useState<{ new: string; confirm: string }>({ new: '', confirm: '' });
   const [error, setError] = useState('');
 
   if (!profile) return null;
@@ -40,8 +40,9 @@ export default function MeuPerfil() {
     setEditModal(true);
   };
 
-  const handleEditSave = async (e: React.FormEvent) => {
+  const handleEditSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!profile) return;
     setLoading(true);
     const { error } = await supabase.from('profiles').update({
       name: editForm.name, phone: editForm.phone || null, city: editForm.city || null,
@@ -53,7 +54,7 @@ export default function MeuPerfil() {
     refreshProfile();
   };
 
-  const handlePasswordSave = async (e: React.FormEvent) => {
+  const handlePasswordSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     if (passwordForm.new !== passwordForm.confirm) { setError('As senhas não coincidem.'); return; }
@@ -67,10 +68,11 @@ export default function MeuPerfil() {
     setPasswordForm({ new: '', confirm: '' });
   };
 
-  const infoItems = [
+  const role = profile.role as UserRole;
+  const infoItems: { icon: typeof User; label: string; value: string }[] = [
     { icon: User, label: 'Nome', value: profile.name },
     { icon: Mail, label: 'Email', value: profile.id },
-    { icon: Pencil, label: 'Cargo', value: roleLabels[profile.role] },
+    { icon: Pencil, label: 'Cargo', value: roleLabels[role] },
     { icon: Phone, label: 'Telefone', value: profile.phone ?? 'Não informado' },
     { icon: MapPin, label: 'Cidade', value: profile.city ?? 'Não informado' },
     { icon: Calendar, label: 'Cadastro', value: new Date(profile.created_at).toLocaleDateString('pt-BR') },
@@ -90,9 +92,7 @@ export default function MeuPerfil() {
               <img src={profile.avatar_url} alt={profile.name} className="w-24 h-24 rounded-full object-cover" />
             ) : (
               <div className={`w-24 h-24 rounded-full flex items-center justify-center ${isDark ? 'bg-dark-700' : 'bg-gray-100'}`}>
-                <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-400'}`}>
-                  {profile.name.charAt(0).toUpperCase()}
-                </span>
+                <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-400'}`}>{profile.name.charAt(0).toUpperCase()}</span>
               </div>
             )}
             <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:bg-primary-700 transition-colors shadow-lg">
@@ -102,7 +102,7 @@ export default function MeuPerfil() {
           </div>
           <div className="text-center sm:text-left flex-1">
             <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{profile.name}</h2>
-            <p className={`text-sm ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>{roleLabels[profile.role]}</p>
+            <p className={`text-sm ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>{roleLabels[role]}</p>
             <div className="flex flex-wrap gap-2 mt-4 justify-center sm:justify-start">
               <button onClick={openEdit} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-700 transition-colors">
                 <Pencil size={16} /> Editar Perfil
@@ -145,17 +145,17 @@ export default function MeuPerfil() {
             <form onSubmit={handleEditSave} className="p-5 space-y-4">
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Nome</label>
-                <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required
+                <input type="text" value={editForm.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, name: e.target.value })} required
                   className={`w-full px-4 py-2.5 rounded-xl border outline-none ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`} />
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Telefone</label>
-                <input type="text" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                <input type="text" value={editForm.phone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, phone: e.target.value })}
                   className={`w-full px-4 py-2.5 rounded-xl border outline-none ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`} />
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Cidade</label>
-                <input type="text" value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                <input type="text" value={editForm.city} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm({ ...editForm, city: e.target.value })}
                   className={`w-full px-4 py-2.5 rounded-xl border outline-none ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`} />
               </div>
               <div className="flex gap-3 pt-2">
@@ -184,12 +184,12 @@ export default function MeuPerfil() {
             <form onSubmit={handlePasswordSave} className="p-5 space-y-4">
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Nova Senha</label>
-                <input type="password" value={passwordForm.new} onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })} required minLength={6}
+                <input type="password" value={passwordForm.new} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswordForm({ ...passwordForm, new: e.target.value })} required minLength={6}
                   className={`w-full px-4 py-2.5 rounded-xl border outline-none ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`} placeholder="Mínimo 6 caracteres" />
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Confirmar Senha</label>
-                <input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} required minLength={6}
+                <input type="password" value={passwordForm.confirm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} required minLength={6}
                   className={`w-full px-4 py-2.5 rounded-xl border outline-none ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`} placeholder="Repita a senha" />
               </div>
               {error && <p className="text-error-500 text-sm">{error}</p>}

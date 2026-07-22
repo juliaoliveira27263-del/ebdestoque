@@ -17,7 +17,7 @@ export default function Cadastro() {
 
   const isDark = theme === 'dark';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await signUp(email, password, name);
@@ -56,7 +56,7 @@ export default function Cadastro() {
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 required
                 className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition-colors ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`}
                 placeholder="Seu nome completo"
@@ -71,7 +71,7 @@ export default function Cadastro() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
                 className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition-colors ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`}
                 placeholder="seu@email.com"
@@ -86,7 +86,7 @@ export default function Cadastro() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
                 minLength={6}
                 className={`w-full pl-10 pr-10 py-2.5 rounded-xl border outline-none transition-colors ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`}

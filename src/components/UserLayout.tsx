@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { supabase } from '../lib/supabase';
-import { roleLabels } from '../lib/types';
+import { roleLabels, UserRole } from '../lib/types';
 
 export default function UserLayout() {
   const { profile, signOut } = useAuth();
@@ -55,14 +55,12 @@ export default function UserLayout() {
 
   const isActive = (path: string) => location.pathname.startsWith(path);
   const firstName = profile?.name?.split(' ')[0] ?? '';
+  const role = profile?.role ?? 'vendedor';
 
   return (
     <div className={`min-h-screen flex ${isDark ? 'bg-dark-950' : 'bg-gray-50'}`}>
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside
@@ -152,7 +150,7 @@ export default function UserLayout() {
                 Olá, {firstName}!
               </h2>
               <p className={`text-xs ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>
-                {profile ? roleLabels[profile.role] : ''}
+                {roleLabels[role as UserRole]}
               </p>
             </div>
           </div>

@@ -50,10 +50,12 @@ export interface Product {
   updated_at: string;
 }
 
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Request {
   id: string;
   user_id: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: RequestStatus;
   notes: string | null;
   total_items: number;
   created_at: string;
@@ -69,10 +71,12 @@ export interface RequestItem {
   created_at: string;
 }
 
+export type MovementType = 'in' | 'out' | 'adjustment';
+
 export interface Movement {
   id: string;
   product_id: string;
-  type: 'in' | 'out' | 'adjustment';
+  type: MovementType;
   quantity: number;
   reason: string | null;
   user_id: string | null;
@@ -96,4 +100,16 @@ export const roleLabels: Record<UserRole, string> = {
   promotor: 'Promotor',
   supervisor: 'Supervisor',
   vendedor: 'Vendedor',
+};
+
+export const statusLabels: Record<RequestStatus, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
+};
+
+export const movementTypeLabels: Record<MovementType, string> = {
+  in: 'Entrada',
+  out: 'Saída',
+  adjustment: 'Ajuste',
 };

@@ -1,148 +1,281 @@
 import { useEffect, useState } from 'react';
-import { Package, AlertTriangle, TrendingUp, FileText, Building2, Users } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import {
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 import { supabase } from '../lib/supabase';
-import { Product, Industry, Request as RequestType } from '../lib/types';
 import Badge from '../components/Badge';
+import { toast } from 'sonner';
+import { RequestStatus, statusLabels } from '../lib/types';
 
-interface Stats {
+interface DashboardStats {
   totalProducts: number;
   lowStock: number;
-  totalIndustries: number;
+  industries: number;
   pendingRequests: number;
-  totalUsers: number;
-  totalStockValue: number;
+  users: number;
+  totalStockItems: number;
 }
 
+interface StockByIndustry {
+  name: string;
+  stock: number;
+}
+
+interface StockStatusData {
+  name: string;
+  value: number;
+}
+
+interface RecentRequest {
+  id: string;
+  user_name: string;
+  status: RequestStatus;
+  total_items: number;
+  created_at: string;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  'Em Estoque': '#10b981',
+  'Estoque Baixo': '#f59e0b',
+  'Sem Estoque': '#ef4444',
+};
+
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats>({
-    totalProducts: 0, lowStock: 0, totalIndustries: 0, pendingRequests: 0, totalUsers: 0, totalStockValue: 0,
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProducts: 0,
+    lowStock: 0,
+    industries: 0,
+    pendingRequests: 0,
+    users: 0,
+    totalStockItems: 0,
   });
-  const [recentRequests, setRecentRequests] = useState<RequestType[]>([]);
-  const [stockByIndustry, setStockByIndustry] = useState<{ name: string; quantidade: number }[]>([]);
-  const [stockStatus, setStockStatus] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [stockByIndustry, setStockByIndustry] = useState<StockByIndustry[]>([]);
+  const [stockStatus, setStockStatus] = useState<StockStatusData[]>([]);
+  const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const [{ count: productCount }, { count: industryCount }, { count: userCount }, { data: products }, { data: requests }] = await Promise.all([
-        supabase.from('products').select('*', { count: 'exact', head: true }).eq('active', true),
-        supabase.from('industries').select('*', { count: 'exact', head: true }).eq('active', true),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('products').select('stock_quantity, min_stock, industry_id'),
-        supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(5),
-      ]);
-
-      const productList = products as Product[] | null;
-      const lowStockCount = productList?.filter(p => p.stock_quantity <= p.min_stock).length ?? 0;
-      const pendingCount = (requests as RequestType[] | null)?.filter(r => r.status === 'pending').length ?? 0;
-
-      setStats({
-        totalProducts: productCount ?? 0,
-        lowStock: lowStockCount,
-        totalIndustries: industryCount ?? 0,
-        pendingRequests: pendingCount,
-        totalUsers: userCount ?? 0,
-        totalStockValue: productList?.reduce((sum, p) => sum + p.stock_quantity, 0) ?? 0,
-      });
-      setRecentRequests((requests as RequestType[] | null) ?? []);
-
-      const { data: industries } = await supabase.from('industries').select('id, name');
-      const industryList = (industries as Industry[] | null) ?? [];
-      const byIndustry = industryList.map(ind => {
-        const total = productList?.filter(p => p.industry_id === ind.id).reduce((sum, p) => sum + p.stock_quantity, 0) ?? 0;
-        return { name: ind.name, quantidade: total };
-      }).filter(item => item.quantidade > 0);
-      setStockByIndustry(byIndustry);
-
-      const inStock = productList?.filter(p => p.stock_quantity > p.min_stock).length ?? 0;
-      const low = productList?.filter(p => p.stock_quantity > 0 && p.stock_quantity <= p.min_stock).length ?? 0;
-      const out = productList?.filter(p => p.stock_quantity === 0).length ?? 0;
-      setStockStatus([
-        { name: 'Em estoque', value: inStock, color: '#16a34a' },
-        { name: 'Estoque baixo', value: low, color: '#f59e0b' },
-        { name: 'Sem estoque', value: out, color: '#dc2626' },
-      ]);
-    };
-    fetchData();
+    fetchDashboardData();
   }, []);
 
-  const cards = [
-    { label: 'Total de Produtos', value: stats.totalProducts, icon: Package, color: 'text-blue-400' },
-    { label: 'Estoque Baixo', value: stats.lowStock, icon: AlertTriangle, color: 'text-warning-500' },
-    { label: 'Indústrias', value: stats.totalIndustries, icon: Building2, color: 'text-purple-400' },
-    { label: 'Solicitações Pendentes', value: stats.pendingRequests, icon: FileText, color: 'text-primary' },
-    { label: 'Usuários', value: stats.totalUsers, icon: Users, color: 'text-green-400' },
-    { label: 'Itens em Estoque', value: stats.totalStockValue, icon: TrendingUp, color: 'text-cyan-400' },
+  const fetchDashboardData = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const [
+        productsRes,
+        industriesRes,
+        requestsRes,
+        usersRes,
+        stockByIndustryRes,
+      ] = await Promise.all([
+        supabase.from('products').select('stock_quantity, min_stock, active'),
+        supabase.from('industries').select('id, active'),
+        supabase.from('requests').select('id, status, total_items, created_at, user_id'),
+        supabase.from('profiles').select('id, name, active'),
+        supabase
+          .from('products')
+          .select('stock_quantity, industry_id, industries(name)'),
+      ]);
+
+      if (productsRes.error) throw productsRes.error;
+      if (industriesRes.error) throw industriesRes.error;
+      if (requestsRes.error) throw requestsRes.error;
+      if (usersRes.error) throw usersRes.error;
+      if (stockByIndustryRes.error) throw stockByIndustryRes.error;
+
+      const products = productsRes.data ?? [];
+      const industries = industriesRes.data ?? [];
+      const requests = requestsRes.data ?? [];
+      const users = usersRes.data ?? [];
+
+      const activeProducts = products.filter((p: { active: boolean }) => p.active);
+      const lowStockCount = activeProducts.filter(
+        (p: { stock_quantity: number; min_stock: number }) =>
+          p.stock_quantity <= p.min_stock && p.stock_quantity > 0,
+      ).length;
+      const outOfStockCount = activeProducts.filter(
+        (p: { stock_quantity: number }) => p.stock_quantity === 0,
+      ).length;
+      const inStockCount = activeProducts.length - lowStockCount - outOfStockCount;
+      const totalStockItems = activeProducts.reduce(
+        (sum: number, p: { stock_quantity: number }) => sum + p.stock_quantity,
+        0,
+      );
+
+      setStats({
+        totalProducts: activeProducts.length,
+        lowStock: lowStockCount + outOfStockCount,
+        industries: industries.filter((i: { active: boolean }) => i.active).length,
+        pendingRequests: requests.filter(
+          (r: { status: RequestStatus }) => r.status === 'pending',
+        ).length,
+        users: users.filter((u: { active: boolean }) => u.active).length,
+        totalStockItems,
+      });
+
+      // Stock by industry
+      const industryMap: Record<string, number> = {};
+      (stockByIndustryRes.data ?? []).forEach((item: { stock_quantity: number; industries: { name: string }[] | null }) => {
+        const industryName = item.industries?.[0]?.name ?? 'Sem Indústria';
+        industryMap[industryName] = (industryMap[industryName] ?? 0) + (item.stock_quantity ?? 0);
+      });
+      setStockByIndustry(
+        Object.entries(industryMap).map(([name, stock]: [string, number]) => ({ name, stock })),
+      );
+
+      // Stock status
+      setStockStatus([
+        { name: 'Em Estoque', value: inStockCount },
+        { name: 'Estoque Baixo', value: lowStockCount },
+        { name: 'Sem Estoque', value: outOfStockCount },
+      ]);
+
+      // Recent requests - need user names
+      const pendingRequestIds = requests
+        .filter((r: { status: RequestStatus }) => r.status === 'pending')
+        .slice(0, 5);
+      const userIds = [...new Set(pendingRequestIds.map((r: { user_id: string }) => r.user_id))];
+      const profilesRes = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', userIds);
+      const profileMap: Record<string, string> = {};
+      (profilesRes.data ?? []).forEach((p: { id: string; name: string }) => {
+        profileMap[p.id] = p.name;
+      });
+      setRecentRequests(
+        pendingRequestIds.map((r: { id: string; user_id: string; status: RequestStatus; total_items: number; created_at: string }) => ({
+          id: r.id,
+          user_name: profileMap[r.user_id] ?? 'Usuário',
+          status: r.status,
+          total_items: r.total_items,
+          created_at: r.created_at,
+        })),
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao carregar dados';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusVariant = (status: RequestStatus): 'warning' | 'success' | 'error' => {
+    if (status === 'pending') return 'warning';
+    if (status === 'approved') return 'success';
+    return 'error';
+  };
+
+  const statCards = [
+    { label: 'Total de Produtos', value: stats.totalProducts, color: 'text-blue-400' },
+    { label: 'Estoque Baixo', value: stats.lowStock, color: 'text-warning-500' },
+    { label: 'Indústrias', value: stats.industries, color: 'text-purple-400' },
+    { label: 'Pedidos Pendentes', value: stats.pendingRequests, color: 'text-orange-400' },
+    { label: 'Usuários', value: stats.users, color: 'text-green-400' },
+    { label: 'Itens em Estoque', value: stats.totalStockItems, color: 'text-cyan-400' },
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-dark-400 text-sm mt-1">Visão geral do sistema</p>
+        <p className="text-dark-400 mt-1">Visão geral do sistema</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="bg-dark-900 border border-dark-800 rounded-xl p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-dark-400 text-sm">{card.label}</p>
-                  <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
-                </div>
-                <Icon size={32} className={card.color} />
-              </div>
-            </div>
-          );
-        })}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {statCards.map((card) => (
+          <div
+            key={card.label}
+            className="bg-dark-800 border border-dark-700 rounded-xl p-4"
+          >
+            <p className="text-dark-400 text-sm">{card.label}</p>
+            <p className={`text-2xl font-bold mt-2 ${card.color}`}>
+              {loading ? '...' : card.value}
+            </p>
+          </div>
+        ))}
       </div>
 
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-dark-900 border border-dark-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4">Estoque por Indústria</h3>
+        {/* Stock by Industry */}
+        <div className="bg-dark-800 border border-dark-700 rounded-xl p-5">
+          <h2 className="text-lg font-semibold text-white mb-4">Estoque por Indústria</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stockByIndustry}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="name" stroke="#71717a" fontSize={12} />
-              <YAxis stroke="#71717a" fontSize={12} />
-              <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }} />
-              <Bar dataKey="quantidade" fill="#C00000" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+              <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#fff',
+                }}
+              />
+              <Bar dataKey="stock" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-dark-900 border border-dark-800 rounded-xl p-5">
-          <h3 className="text-white font-semibold mb-4">Status do Estoque</h3>
+        {/* Stock Status Pie */}
+        <div className="bg-dark-800 border border-dark-700 rounded-xl p-5">
+          <h2 className="text-lg font-semibold text-white mb-4">Status do Estoque</h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={stockStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                {stockStatus.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+              <Pie
+                data={stockStatus}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={(entry: { name: string; value: number }) => `${entry.name}: ${entry.value}`}
+              >
+                {stockStatus.map((entry: StockStatusData) => (
+                  <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? '#6b7280'} />
                 ))}
               </Pie>
-              <Legend />
-              <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#fff',
+                }}
+              />
+              <Legend wrapperStyle={{ color: '#9ca3af' }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="bg-dark-900 border border-dark-800 rounded-xl p-5">
-        <h3 className="text-white font-semibold mb-4">Solicitações Recentes</h3>
+      {/* Recent Requests */}
+      <div className="bg-dark-800 border border-dark-700 rounded-xl p-5">
+        <h2 className="text-lg font-semibold text-white mb-4">Pedidos Recentes</h2>
         {recentRequests.length === 0 ? (
-          <p className="text-dark-400 text-sm text-center py-8">Nenhuma solicitação encontrada</p>
+          <p className="text-dark-400 text-center py-8">Nenhum pedido pendente</p>
         ) : (
-          <div className="space-y-2">
-            {recentRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between py-3 border-b border-dark-800 last:border-0">
-                <div>
-                  <p className="text-white text-sm font-medium">{req.total_items} item(s)</p>
-                  <p className="text-dark-400 text-xs">{new Date(req.created_at).toLocaleDateString('pt-BR')}</p>
+          <div className="space-y-3">
+            {recentRequests.map((req: RecentRequest) => (
+              <div
+                key={req.id}
+                className="flex items-center justify-between p-3 bg-dark-900/50 rounded-lg border border-dark-700"
+              >
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-white font-medium">{req.user_name}</p>
+                    <p className="text-dark-400 text-sm">
+                      {req.total_items} itens •{' '}
+                      {new Date(req.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
                 </div>
-                <Badge variant={req.status === 'pending' ? 'warning' : req.status === 'approved' ? 'success' : 'error'}>
-                  {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                <Badge variant={statusVariant(req.status)}>
+                  {statusLabels[req.status]}
                 </Badge>
               </div>
             ))}

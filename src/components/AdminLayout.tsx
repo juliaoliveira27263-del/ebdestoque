@@ -1,8 +1,8 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Package, FileText, ArrowLeftRight, Building2,
-  BarChart3, Bell, Users, Settings, User, LogOut, Menu, X,
+  BarChart3, Bell, Users as UsersIcon, Settings, User, LogOut, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -15,7 +15,7 @@ const navItems = [
   { path: '/industrias', label: 'Indústrias', icon: Building2 },
   { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
   { path: '/notificacoes', label: 'Notificações', icon: Bell },
-  { path: '/usuarios', label: 'Usuários', icon: Users },
+  { path: '/usuarios', label: 'Usuários', icon: UsersIcon },
   { path: '/configuracoes', label: 'Configurações', icon: Settings },
   { path: '/perfil', label: 'Perfil', icon: User },
 ];
@@ -60,15 +60,10 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-dark-950 flex">
-      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-dark-900 border-r border-dark-800 flex flex-col transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -84,10 +79,7 @@ export default function AdminLayout() {
               <p className="text-dark-400 text-xs">Controle de Estoque</p>
             </div>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-dark-400 hover:text-white"
-          >
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-dark-400 hover:text-white">
             <X size={20} />
           </button>
         </div>
@@ -102,9 +94,7 @@ export default function AdminLayout() {
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-primary text-white'
-                    : 'text-dark-300 hover:bg-dark-800 hover:text-white'
+                  active ? 'bg-primary text-white' : 'text-dark-300 hover:bg-dark-800 hover:text-white'
                 }`}
               >
                 <Icon size={18} />
@@ -141,13 +131,9 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="lg:hidden flex items-center justify-between p-4 bg-dark-900 border-b border-dark-800">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-dark-300 hover:text-white"
-          >
+          <button onClick={() => setSidebarOpen(true)} className="text-dark-300 hover:text-white">
             <Menu size={24} />
           </button>
           <span className="text-white font-semibold text-sm">EBD Petrolina</span>

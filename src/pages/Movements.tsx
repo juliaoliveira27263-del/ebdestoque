@@ -1,222 +1,348 @@
 import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, Sliders, Search } from 'lucide-react';
+import { Plus, Search, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { Movement, Product, Profile } from '../lib/types';
+import Modal from '../components/Modal';
 import Badge from '../components/Badge';
-import { exportToCSV } from '../lib/csv';
 import { toast } from 'sonner';
+import { exportToCSV } from '../lib/csv';
+import { Movement, MovementType, Product, movementTypeLabels } from '../lib/types';
 
-interface MovementWithDetails extends Movement {
-  product_name?: string;
-  user_name?: string;
+interface MovementWithProduct extends Movement {
+  product_name: string | undefined;
+  product_sku: string | undefined;
 }
 
 export default function Movements() {
-  const [movements, setMovements] = useState<MovementWithDetails[]>([]);
+  const [movements, setMovements] = useState<MovementWithProduct[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [form, setForm] = useState({ product_id: '', type: 'in', quantity: 0, reason: '' });
-  const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [search, setSearch] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
 
-  const fetchData = async () => {
-    setLoading(true);
-    const [{ data: movementsData }, { data: productsData }] = await Promise.all([
-      supabase.from('movements').select('*').order('created_at', { ascending: false }).limit(100),
-      supabase.from('products').select('*').eq('active', true).order('name'),
-    ]);
-    const moveList = (movementsData as Movement[] | null) ?? [];
-    setProducts((productsData as Product[] | null) ?? []);
-
-    const productIds = [...new Set(moveList.map(m => m.product_id))];
-    const userIds = [...new Set(moveList.map(m => m.user_id).filter(Boolean) as string[])];
-
-    const [{ data: prods }, { data: profiles }] = await Promise.all([
-      supabase.from('products').select('id, name').in('id', productIds),
-      userIds.length > 0 ? supabase.from('profiles').select('id, name').in('id', userIds) : Promise.resolve({ data: null }),
-    ]);
-
-    const productMap = new Map<string, string>();
-    (prods as Product[] | null)?.forEach(p => productMap.set(p.id, p.name));
-    const profileMap = new Map<string, string>();
-    (profiles as Profile[] | null)?.forEach(p => profileMap.set(p.id, p.name));
-
-    const enriched = moveList.map(m => ({
-      ...m,
-      product_name: productMap.get(m.product_id) ?? 'Desconhecido',
-      user_name: m.user_id ? (profileMap.get(m.user_id) ?? 'Desconhecido') : undefined,
-    }));
-    setMovements(enriched);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.product_id || form.quantity <= 0) return;
-    const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', form.product_id).single();
-    const currentStock = (product as Product | null)?.stock_quantity ?? 0;
-    let newStock = currentStock;
-    if (form.type === 'in') newStock = currentStock + Number(form.quantity);
-    else if (form.type === 'out') {
-      newStock = currentStock - Number(form.quantity);
-      if (newStock < 0) { toast.error('Estoque insuficiente.'); return; }
-    } else newStock = Number(form.quantity);
-
-    await supabase.from('products').update({ stock_quantity: newStock }).eq('id', form.product_id);
-    await supabase.from('movements').insert({
-      product_id: form.product_id, type: form.type, quantity: Number(form.quantity),
-      reason: form.reason || null,
-    });
-    toast.success('Movimentação registrada!');
-    setModalOpen(false);
-    setForm({ product_id: '', type: 'in', quantity: 0, reason: '' });
-    fetchData();
-  };
-
-  const filtered = movements.filter(m => {
-    const matchSearch = m.product_name?.toLowerCase().includes(search.toLowerCase()) ?? false;
-    const matchType = typeFilter === 'all' || m.type === typeFilter;
-    return matchSearch && matchType;
+  const [formData, setFormData] = useState({
+    product_id: '',
+    type: 'in' as MovementType,
+    quantity: '1',
+    reason: '',
   });
 
-  const handleExport = () => {
-    exportToCSV('movimentacoes.csv', ['Produto', 'Tipo', 'Quantidade', 'Motivo', 'Usuário', 'Data'],
-      filtered.map(m => [m.product_name ?? '', m.type, m.quantity, m.reason ?? '', m.user_name ?? '', new Date(m.created_at).toLocaleDateString('pt-BR')]));
+  useEffect(() => {
+    fetchMovements();
+    fetchProducts();
+  }, []);
+
+  const fetchMovements = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('movements')
+        .select('*, products(name, sku)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const mapped = (data ?? []).map((m: Movement & { products: { name: string; sku: string | null } | null }) => ({
+        ...m,
+        product_name: m.products?.name,
+        product_sku: m.products?.sku ?? undefined,
+      }));
+      setMovements(mapped);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao carregar movimentações';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const typeIcon = (type: string) => {
-    if (type === 'in') return <ArrowDown size={16} className="text-success-500" />;
-    if (type === 'out') return <ArrowUp size={16} className="text-error-500" />;
-    return <Sliders size={16} className="text-blue-400" />;
+  const fetchProducts = async (): Promise<void> => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('active', true)
+      .order('name');
+    if (error) {
+      toast.error('Erro ao carregar produtos');
+      return;
+    }
+    setProducts(data ?? []);
   };
 
-  const typeLabel = (type: string) => type === 'in' ? 'Entrada' : type === 'out' ? 'Saída' : 'Ajuste';
+  const handleOpenCreate = (): void => {
+    setFormData({
+      product_id: '',
+      type: 'in',
+      quantity: '1',
+      reason: '',
+    });
+    setModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    try {
+      const product = products.find((p: Product) => p.id === formData.product_id);
+      if (!product) {
+        toast.error('Selecione um produto');
+        return;
+      }
+
+      const quantity = parseInt(formData.quantity, 10);
+      if (isNaN(quantity) || quantity <= 0) {
+        toast.error('Quantidade inválida');
+        return;
+      }
+
+      // Create movement
+      const { error: movementError } = await supabase.from('movements').insert({
+        product_id: formData.product_id,
+        type: formData.type,
+        quantity,
+        reason: formData.reason || null,
+      });
+      if (movementError) throw movementError;
+
+      // Update stock
+      let newStock = product.stock_quantity;
+      if (formData.type === 'in') {
+        newStock += quantity;
+      } else if (formData.type === 'out') {
+        newStock = Math.max(0, newStock - quantity);
+      } else {
+        // adjustment: set to the quantity value directly
+        newStock = quantity;
+      }
+
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ stock_quantity: newStock })
+        .eq('id', product.id);
+      if (updateError) throw updateError;
+
+      toast.success('Movimentação registrada com sucesso');
+      setModalOpen(false);
+      fetchMovements();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro ao registrar movimentação';
+      toast.error(message);
+    }
+  };
+
+  const handleExportCSV = (): void => {
+    const headers = ['Produto', 'SKU', 'Tipo', 'Quantidade', 'Motivo', 'Data'];
+    const rows = filteredMovements.map((m: MovementWithProduct) => [
+      m.product_name ?? '',
+      m.product_sku ?? '',
+      movementTypeLabels[m.type],
+      m.quantity,
+      m.reason ?? '',
+      new Date(m.created_at).toLocaleDateString('pt-BR'),
+    ]);
+    exportToCSV('movimentacoes.csv', headers, rows);
+  };
+
+  const filteredMovements = movements.filter((m: MovementWithProduct) => {
+    const matchesSearch =
+      (m.product_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (m.product_sku ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (m.reason ?? '').toLowerCase().includes(search.toLowerCase());
+    const matchesType = typeFilter === 'all' || m.type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const typeVariant = (type: MovementType): 'success' | 'error' | 'info' => {
+    if (type === 'in') return 'success';
+    if (type === 'out') return 'error';
+    return 'info';
+  };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Movimentações</h1>
-          <p className="text-dark-400 text-sm mt-1">Histórico de entradas e saídas</p>
+          <p className="text-dark-400 mt-1">Registrar entradas, saídas e ajustes</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExport} className="px-4 py-2 rounded-lg bg-dark-800 text-white text-sm font-medium hover:bg-dark-700 transition-colors">
-            Exportar CSV
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-dark-800 border border-dark-700 text-white rounded-lg hover:bg-dark-700 transition-colors"
+          >
+            <Download size={18} />
+            Exportar
           </button>
-          <button onClick={() => setModalOpen(true)} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-700 transition-colors">
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={18} />
             Nova Movimentação
           </button>
         </div>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={18} />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por produto..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-dark-900 border border-dark-800 text-white outline-none focus:border-primary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={20} />
+          <input
+            type="text"
+            placeholder="Buscar por produto, SKU ou motivo..."
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-dark-800 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500 placeholder-dark-400"
+          />
         </div>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-4 py-2.5 rounded-lg bg-dark-900 border border-dark-800 text-white outline-none focus:border-primary">
-          <option value="all">Todos</option>
-          <option value="in">Entradas</option>
-          <option value="out">Saídas</option>
-          <option value="adjustment">Ajustes</option>
+        <select
+          value={typeFilter}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTypeFilter(e.target.value)}
+          className="px-4 py-2.5 bg-dark-800 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+        >
+          <option value="all">Todos os Tipos</option>
+          <option value="in">Entrada</option>
+          <option value="out">Saída</option>
+          <option value="adjustment">Ajuste</option>
         </select>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-dark-400">Carregando...</div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <Sliders size={48} className="text-dark-600 mx-auto mb-4" />
-          <p className="text-dark-400">Nenhuma movimentação encontrada</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto bg-dark-900 border border-dark-800 rounded-xl">
+      {/* Table */}
+      <div className="bg-dark-800 border border-dark-700 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-dark-800">
-                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Produto</th>
-                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Tipo</th>
-                <th className="text-right p-4 text-dark-300 text-sm font-semibold">Qtd</th>
-                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Motivo</th>
-                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Usuário</th>
-                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Data</th>
+              <tr className="border-b border-dark-700">
+                <th className="text-left p-4 text-dark-300 font-semibold">Produto</th>
+                <th className="text-left p-4 text-dark-300 font-semibold">SKU</th>
+                <th className="text-left p-4 text-dark-300 font-semibold">Tipo</th>
+                <th className="text-left p-4 text-dark-300 font-semibold">Quantidade</th>
+                <th className="text-left p-4 text-dark-300 font-semibold">Motivo</th>
+                <th className="text-left p-4 text-dark-300 font-semibold">Data</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((m) => (
-                <tr key={m.id} className="border-b border-dark-800 last:border-0 hover:bg-dark-800/50">
-                  <td className="p-4 text-white text-sm">{m.product_name}</td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      {typeIcon(m.type)}
-                      <Badge variant={m.type === 'in' ? 'success' : m.type === 'out' ? 'error' : 'info'}>
-                        {typeLabel(m.type)}
-                      </Badge>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-dark-400">
+                    Carregando...
                   </td>
-                  <td className="p-4 text-right text-white text-sm font-medium">{m.quantity}</td>
-                  <td className="p-4 text-dark-300 text-sm">{m.reason ?? '-'}</td>
-                  <td className="p-4 text-dark-300 text-sm">{m.user_name ?? '-'}</td>
-                  <td className="p-4 text-dark-300 text-sm">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
                 </tr>
-              ))}
+              ) : filteredMovements.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-dark-400">
+                    Nenhuma movimentação encontrada
+                  </td>
+                </tr>
+              ) : (
+                filteredMovements.map((movement: MovementWithProduct) => (
+                  <tr
+                    key={movement.id}
+                    className="border-b border-dark-700 hover:bg-dark-700/50 transition-colors"
+                  >
+                    <td className="p-4 text-white">{movement.product_name ?? 'Produto removido'}</td>
+                    <td className="p-4 text-dark-300">{movement.product_sku ?? '-'}</td>
+                    <td className="p-4">
+                      <Badge variant={typeVariant(movement.type)}>
+                        {movementTypeLabels[movement.type]}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-white">
+                      {movement.type === 'in' ? '+' : movement.type === 'out' ? '-' : '='}
+                      {movement.quantity}
+                    </td>
+                    <td className="p-4 text-dark-300">{movement.reason ?? '-'}</td>
+                    <td className="p-4 text-dark-300">
+                      {new Date(movement.created_at).toLocaleDateString('pt-BR')}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-          <div className="relative w-full max-w-md bg-dark-900 rounded-2xl shadow-2xl border border-dark-800 animate-scale-in">
-            <div className="p-5 border-b border-dark-800">
-              <h2 className="text-lg font-bold text-white">Nova Movimentação</h2>
-            </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-1.5">Produto *</label>
-                <select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} required
-                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary">
-                  <option value="">Selecione...</option>
-                  {products.map(p => <option key={p.id} value={p.id}>{p.name} (Estoque: {p.stock_quantity})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-1.5">Tipo *</label>
-                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary">
-                  <option value="in">Entrada</option>
-                  <option value="out">Saída</option>
-                  <option value="adjustment">Ajuste</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-1.5">Quantidade *</label>
-                <input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} min={1} required
-                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-1.5">Motivo</label>
-                <input type="text" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary" />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-2.5 rounded-lg bg-dark-800 text-white font-medium hover:bg-dark-700 transition-colors">
-                  Cancelar
-                </button>
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary-700 transition-colors">
-                  Registrar
-                </button>
-              </div>
-            </form>
+      {/* Modal */}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Nova Movimentação"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-dark-300 text-sm mb-1">Produto *</label>
+            <select
+              required
+              value={formData.product_id}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setFormData({ ...formData, product_id: e.target.value })
+              }
+              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Selecione...</option>
+              {products.map((product: Product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} (Estoque: {product.stock_quantity})
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-dark-300 text-sm mb-1">Tipo *</label>
+            <select
+              value={formData.type}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setFormData({ ...formData, type: e.target.value as MovementType })
+              }
+              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+            >
+              <option value="in">Entrada</option>
+              <option value="out">Saída</option>
+              <option value="adjustment">Ajuste</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-dark-300 text-sm mb-1">
+              {formData.type === 'adjustment' ? 'Nova Quantidade *' : 'Quantidade *'}
+            </label>
+            <input
+              type="number"
+              min="1"
+              required
+              value={formData.quantity}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setFormData({ ...formData, quantity: e.target.value })
+              }
+              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-dark-300 text-sm mb-1">Motivo</label>
+            <textarea
+              value={formData.reason}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setFormData({ ...formData, reason: e.target.value })
+              }
+              rows={2}
+              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="px-4 py-2 text-dark-300 hover:text-white transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Registrar
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

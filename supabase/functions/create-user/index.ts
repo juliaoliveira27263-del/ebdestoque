@@ -43,7 +43,10 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { email, password, name, role, phone } = await req.json();
+    const body = await req.json();
+    const { email, password, name, role, phone } = body as {
+      email: string; password: string; name: string; role: string; phone?: string;
+    };
 
     if (!email || !password || !name || !role) {
       return new Response(JSON.stringify({ error: 'Dados incompletos' }), {
@@ -77,7 +80,8 @@ Deno.serve(async (req: Request) => {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    const message = err instanceof Error ? err.message : 'Erro interno';
+    return new Response(JSON.stringify({ error: message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
