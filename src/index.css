@@ -1,170 +1,89 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 96%;
-    --foreground: 0 0% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-
-    --primary: 350 83% 42%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 355 70% 30%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 40%;
-
-    --accent: 355 75% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142 71% 40%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 10%;
-
-    --border: 0 0% 88%;
-    --input: 0 0% 88%;
-    --ring: 350 83% 42%;
-
-    --chart-1: 350 83% 42%;
-    --chart-2: 355 75% 55%;
-    --chart-3: 10 80% 50%;
-    --chart-4: 25 85% 55%;
-    --chart-5: 0 0% 45%;
-
-    --radius: 0.625rem;
-  }
-
-  .dark {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 95%;
-
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 95%;
-
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
-
-    --primary: 350 83% 48%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 355 60% 35%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 65%;
-
-    --accent: 355 70% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 55%;
-    --warning-foreground: 0 0% 10%;
-
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 350 83% 48%;
-
-    --chart-1: 350 83% 55%;
-    --chart-2: 355 75% 60%;
-    --chart-3: 10 80% 55%;
-    --chart-4: 25 85% 60%;
-    --chart-5: 0 0% 65%;
-  }
-}
-
-@layer base {
   * {
-    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   html {
-    overflow-x: hidden;
-    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
-    margin: 0;
-    min-height: 100vh;
-    min-height: 100dvh;
-    overflow-x: hidden;
-    /* Safe area for iOS notch / home indicator */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    @apply bg-dark-950 text-dark-100 font-sans antialiased;
+    overscroll-behavior: none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
-  /* Fix for standalone PWA on iOS: remove double safe-area padding */
-  @media all and (display-mode: standalone) {
-    body {
-      padding-top: 0;
-    }
+  input, select, textarea {
+    font-size: 16px;
   }
 }
 
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 shadow-lg shadow-primary-600/20;
+  }
+  .btn-secondary {
+    @apply btn bg-dark-700 text-dark-100 hover:bg-dark-600 border border-dark-600;
+  }
+  .btn-danger {
+    @apply btn bg-error-600 text-white hover:bg-error-500;
+  }
+  .btn-ghost {
+    @apply btn text-dark-300 hover:text-white hover:bg-dark-700;
+  }
+  .input {
+    @apply w-full bg-dark-800 border border-dark-600 rounded-lg px-4 py-2.5 text-white placeholder-dark-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors;
+  }
+  .label {
+    @apply block text-sm font-medium text-dark-300 mb-1.5;
+  }
+  .card {
+    @apply bg-dark-800 border border-dark-700 rounded-xl;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-success {
+    @apply badge bg-success-500/15 text-success-500;
+  }
+  .badge-warning {
+    @apply badge bg-warning-500/15 text-warning-500;
+  }
+  .badge-error {
+    @apply badge bg-error-500/15 text-error-500;
+  }
+  .badge-primary {
+    @apply badge bg-primary-500/15 text-primary-400;
+  }
+  .badge-neutral {
+    @apply badge bg-dark-600 text-dark-300;
+  }
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+  background: #2d2e34;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: #3d3e45;
 }
 
-@keyframes ripple-anim {
-  to {
-    transform: scale(4);
-    opacity: 0;
+/* Prevent iOS zoom on input focus */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px;
   }
-}
-.ripple {
-  position: absolute;
-  border-radius: 50%;
-  transform: scale(0);
-  animation: ripple-anim 0.6s ease-out;
-  background: rgba(255, 255, 255, 0.4);
-  pointer-events: none;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.shimmer {
-  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.1) 50%, hsl(var(--muted)) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in-up {
-  animation: fade-in-up 0.4s ease-out;
 }

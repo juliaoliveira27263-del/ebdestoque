@@ -1,11 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#C00000"/>
-      <stop offset="100%" stop-color="#8B0000"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="4" fill="url(#bg)"/>
-  <text x="50%" y="50%" dy="-2" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="9" fill="white" text-anchor="middle" dominant-baseline="middle">EBD</text>
-  <text x="50%" y="50%" dy="6" font-family="Arial,Helvetica,sans-serif" font-weight="600" font-size="4" fill="rgba(255,255,255,0.85)" text-anchor="middle" dominant-baseline="middle">INVENTÁRIO</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="20" fill="#dc2626"/>
+  <path d="M30 35h40v30H30z" fill="none" stroke="white" stroke-width="4"/>
+  <path d="M35 35v-5h30v5" fill="none" stroke="white" stroke-width="4"/>
+  <path d="M45 50h10v8h-10z" fill="white"/>
 </svg>

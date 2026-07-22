@@ -1,85 +1,89 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { QueryProvider } from '@/contexts/QueryProvider';
-import { Toaster } from 'sonner';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { LoginPage } from '@/pages/LoginPage';
-import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { PWAInstallBanner } from '@/components/PWAInstallBanner';
-import { PWAUpdateToast } from '@/components/PWAUpdateToast';
-import { lazy, Suspense } from 'react';
-import { PageLoader } from '@/components/PageLoader';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from './lib/auth';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
+import Requests from './pages/Requests';
+import Movements from './pages/Movements';
+import Industries from './pages/Industries';
+import Reports from './pages/Reports';
+import Notifications from './pages/Notifications';
+import Users from './pages/Users';
+import Settings from './pages/Settings';
+import Profile from './pages/Profile';
+import Layout from './components/Layout';
 
-const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
-const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
-const NewRequestPage = lazy(() => import('@/pages/NewRequestPage').then((m) => ({ default: m.NewRequestPage })));
-const ProductsPage = lazy(() => import('@/pages/ProductsPage').then((m) => ({ default: m.ProductsPage })));
-const RequestsPage = lazy(() => import('@/pages/RequestsPage').then((m) => ({ default: m.RequestsPage })));
-const MovementsPage = lazy(() => import('@/pages/MovementsPage').then((m) => ({ default: m.MovementsPage })));
-const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
-const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })));
-const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
-const IndustriesPage = lazy(() => import('@/pages/IndustriesPage').then((m) => ({ default: m.IndustriesPage })));
-const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
-
-function RootRedirect() {
-  const { profile, loading } = useAuth();
-  if (loading) return <PageLoader />;
-  if (profile?.role === 'admin') return <Navigate to="/dashboard" replace />;
-  return <Navigate to="/solicitar" replace />;
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark-950">
+        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
 }
 
-function AppRoutes() {
-  const { loading } = useAuth();
-
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin, loading } = useAuth();
   if (loading) {
-    return <PageLoader />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark-950">
+        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
-
-  return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route
-        element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/home" element={<Suspense fallback={<PageLoader />}><HomePage /></Suspense>} />
-        <Route path="/solicitar" element={<Suspense fallback={<PageLoader />}><NewRequestPage /></Suspense>} />
-        <Route path="/dashboard" element={<Suspense fallback={<PageLoader />}><DashboardPage /></Suspense>} />
-        <Route path="/products" element={<Suspense fallback={<PageLoader />}><ProductsPage /></Suspense>} />
-        <Route path="/requests" element={<Suspense fallback={<PageLoader />}><RequestsPage /></Suspense>} />
-        <Route path="/movements" element={<Suspense fallback={<PageLoader />}><MovementsPage /></Suspense>} />
-        <Route path="/industries" element={<Suspense fallback={<PageLoader />}><IndustriesPage /></Suspense>} />
-        <Route path="/reports" element={<Suspense fallback={<PageLoader />}><ReportsPage /></Suspense>} />
-        <Route path="/notifications" element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />
-        <Route path="/users" element={<Suspense fallback={<PageLoader />}><UsersPage /></Suspense>} />
-        <Route path="/profile" element={<Suspense fallback={<PageLoader />}><ProfilePage /></Suspense>} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+  if (!isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <QueryProvider>
-          <BrowserRouter>
-            <AppRoutes />
-            <PWAInstallBanner />
-          </BrowserRouter>
-          <PWAUpdateToast />
-          <Toaster position="top-right" richColors closeButton />
-        </QueryProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="produtos" element={<Products />} />
+        <Route path="solicitacoes" element={<Requests />} />
+        <Route path="movimentacoes" element={<Movements />} />
+        <Route
+          path="industrias"
+          element={
+            <AdminRoute>
+              <Industries />
+            </AdminRoute>
+          }
+        />
+        <Route path="relatorios" element={<Reports />} />
+        <Route path="notificacoes" element={<Notifications />} />
+        <Route
+          path="usuarios"
+          element={
+            <AdminRoute>
+              <Users />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="configuracoes"
+          element={
+            <AdminRoute>
+              <Settings />
+            </AdminRoute>
+          }
+        />
+        <Route path="perfil" element={<Profile />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
