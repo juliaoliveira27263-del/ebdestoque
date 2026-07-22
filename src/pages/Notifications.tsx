@@ -10,7 +10,6 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { fetchNotifications(); }, [profile?.id]);
-
   const fetchNotifications = async () => { let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }); if (!isAdmin && profile?.id) query = query.or(`user_id.eq.${profile.id},user_id.is.null`); const { data } = await query; setNotifications(data as Notification[] ?? []); setLoading(false); };
   const markAsRead = async (id: string) => { await supabase.from('notifications').update({ read: true }).eq('id', id); await fetchNotifications(); };
   const markAllRead = async () => { for (const n of notifications.filter((n) => !n.read)) { await supabase.from('notifications').update({ read: true }).eq('id', n.id); } await fetchNotifications(); };

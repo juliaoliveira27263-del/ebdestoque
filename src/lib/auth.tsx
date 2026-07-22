@@ -18,6 +18,7 @@ interface AuthContextValue {
   isSupervisor: boolean;
   isVendedor: boolean;
   isPromotor: boolean;
+  isNonAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSupervisor: profile?.role === 'supervisor',
     isVendedor: profile?.role === 'vendedor',
     isPromotor: profile?.role === 'promotor',
+    isNonAdmin: profile?.role !== 'admin' && !!profile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

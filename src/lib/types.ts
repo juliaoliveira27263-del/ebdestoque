@@ -5,6 +5,8 @@ export interface Profile {
   name: string;
   role: UserRole;
   phone: string | null;
+  city: string | null;
+  avatar_url: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -13,6 +15,7 @@ export interface Profile {
 export interface Industry {
   id: string;
   name: string;
+  logo_url: string | null;
   cnpj: string | null;
   contact_name: string | null;
   contact_email: string | null;

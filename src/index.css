@@ -6,9 +6,16 @@
   * { -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; }
   body {
-    @apply bg-dark-950 text-dark-100 font-sans antialiased;
+    @apply font-sans antialiased;
     overscroll-behavior: none;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  body.theme-dark {
+    @apply bg-dark-950 text-dark-100;
+  }
+  body.theme-light {
+    @apply bg-gray-50 text-gray-900;
   }
   input, select, textarea { font-size: 16px; }
 }
@@ -16,18 +23,42 @@
 @layer components {
   .btn { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]; }
   .btn-primary { @apply btn bg-primary-600 text-white hover:bg-primary-700 shadow-lg shadow-primary-600/20; }
-  .btn-secondary { @apply btn bg-dark-700 text-dark-100 hover:bg-dark-600 border border-dark-600; }
+  .btn-secondary { @apply btn border transition-colors; }
   .btn-danger { @apply btn bg-error-600 text-white hover:bg-error-500; }
-  .btn-ghost { @apply btn text-dark-300 hover:text-white hover:bg-dark-700; }
-  .input { @apply w-full bg-dark-800 border border-dark-600 rounded-lg px-4 py-2.5 text-white placeholder-dark-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors; }
-  .label { @apply block text-sm font-medium text-dark-300 mb-1.5; }
-  .card { @apply bg-dark-800 border border-dark-700 rounded-xl; }
+  .btn-ghost { @apply btn transition-colors; }
+
+  .input { @apply w-full border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-1 transition-colors; }
+  .label { @apply block text-sm font-medium mb-1.5; }
+  .card { @apply border rounded-xl; }
   .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
-  .badge-success { @apply badge bg-success-500/15 text-success-500; }
-  .badge-warning { @apply badge bg-warning-500/15 text-warning-500; }
-  .badge-error { @apply badge bg-error-500/15 text-error-500; }
-  .badge-primary { @apply badge bg-primary-600/15 text-primary-500; }
-  .badge-neutral { @apply badge bg-dark-600 text-dark-300; }
+
+  /* Dark theme overrides */
+  body.theme-dark {
+    .btn-secondary { @apply bg-dark-700 text-dark-100 hover:bg-dark-600 border-dark-600; }
+    .btn-ghost { @apply text-dark-300 hover:text-white hover:bg-dark-700; }
+    .input { @apply bg-dark-800 border-dark-600 text-white placeholder-dark-400 focus:border-primary-500 focus:ring-primary-500; }
+    .label { @apply text-dark-300; }
+    .card { @apply bg-dark-800 border-dark-700; }
+    .badge-success { @apply badge bg-success-500/15 text-success-500; }
+    .badge-warning { @apply badge bg-warning-500/15 text-warning-500; }
+    .badge-error { @apply badge bg-error-500/15 text-error-500; }
+    .badge-primary { @apply badge bg-primary-600/15 text-primary-500; }
+    .badge-neutral { @apply badge bg-dark-600 text-dark-300; }
+  }
+
+  /* Light theme overrides */
+  body.theme-light {
+    .btn-secondary { @apply bg-white text-gray-700 hover:bg-gray-100 border-gray-300; }
+    .btn-ghost { @apply text-gray-600 hover:text-gray-900 hover:bg-gray-100; }
+    .input { @apply bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500; }
+    .label { @apply text-gray-600; }
+    .card { @apply bg-white border-gray-200 shadow-sm; }
+    .badge-success { @apply badge bg-green-100 text-green-700; }
+    .badge-warning { @apply badge bg-amber-100 text-amber-700; }
+    .badge-error { @apply badge bg-red-100 text-red-700; }
+    .badge-primary { @apply badge bg-red-100 text-red-700; }
+    .badge-neutral { @apply badge bg-gray-200 text-gray-600; }
+  }
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }

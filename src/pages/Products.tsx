@@ -23,27 +23,15 @@ export default function Products() {
   const [form, setForm] = useState({ name: '', description: '', sku: '', industry_id: '', category_id: '', stock_quantity: '0', min_stock: '0', unit: 'un', active: true, image_url: '' });
 
   useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
-    const [p, i, c] = await Promise.all([
-      supabase.from('products').select('*, industry:industries(*), category:categories(*)').order('name'),
-      supabase.from('industries').select('*').order('name'),
-      supabase.from('categories').select('*').order('name'),
-    ]);
-    setProducts(p.data as Product[] ?? []); setIndustries(i.data as Industry[] ?? []); setCategories(c.data as Category[] ?? []); setLoading(false);
-  };
-
+  const fetchData = async () => { const [p, i, c] = await Promise.all([supabase.from('products').select('*, industry:industries(*), category:categories(*)').order('name'), supabase.from('industries').select('*').order('name'), supabase.from('categories').select('*').order('name')]); setProducts(p.data as Product[] ?? []); setIndustries(i.data as Industry[] ?? []); setCategories(c.data as Category[] ?? []); setLoading(false); };
   const filteredProducts = useMemo(() => { if (!search) return products; const q = search.toLowerCase(); return products.filter((p) => p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.industry?.name.toLowerCase().includes(q)); }, [products, search]);
   const industryNames: Record<string, string> = useMemo(() => { const names: Record<string, string> = {}; filteredProducts.forEach((p) => { const indId = p.industry_id ?? 'no-industry'; names[indId] = p.industry?.name?.trim() ?? 'Sem Indústria'; }); return names; }, [filteredProducts]);
   const productsByIndustry = useMemo(() => { const map: Record<string, Product[]> = {}; filteredProducts.forEach((p) => { const indId = p.industry_id ?? 'no-industry'; if (!map[indId]) map[indId] = []; map[indId].push(p); }); return map; }, [filteredProducts]);
 
   const openCreate = () => { setEditingProduct(null); setForm({ name: '', description: '', sku: '', industry_id: '', category_id: '', stock_quantity: '0', min_stock: '0', unit: 'un', active: true, image_url: '' }); setImagePreview(null); setError(null); setModalOpen(true); };
   const openEdit = (product: Product) => { setEditingProduct(product); setForm({ name: product.name, description: product.description ?? '', sku: product.sku ?? '', industry_id: product.industry_id ?? '', category_id: product.category_id ?? '', stock_quantity: String(product.stock_quantity), min_stock: String(product.min_stock), unit: product.unit, active: product.active, image_url: product.image_url ?? '' }); setImagePreview(product.image_url); setError(null); setModalOpen(true); };
-
   const handleImageUpload = async (file: File) => { setUploadingImage(true); setError(null); try { const fileExt = file.name.split('.').pop(); const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}.${fileExt}`; const { error: uploadError } = await supabase.storage.from('product-images').upload(fileName, file, { cacheControl: '3600' }); if (uploadError) throw uploadError; const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName); setImagePreview(publicUrl); setForm((prev) => ({ ...prev, image_url: publicUrl })); } catch (err: any) { setError('Erro ao fazer upload da imagem: ' + err.message); } finally { setUploadingImage(false); } };
-
   const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setSubmitting(true); setError(null); if (!form.industry_id) { setError('Selecione uma indústria'); setSubmitting(false); return; } const payload = { name: form.name, description: form.description || null, sku: form.sku || null, industry_id: form.industry_id, category_id: form.category_id || null, stock_quantity: parseInt(form.stock_quantity) || 0, min_stock: parseInt(form.min_stock) || 0, unit: form.unit, active: form.active, image_url: form.image_url || null }; try { if (editingProduct) { const { error } = await supabase.from('products').update(payload).eq('id', editingProduct.id); if (error) throw error; } else { const { error } = await supabase.from('products').insert(payload); if (error) throw error; } setModalOpen(false); await fetchData(); } catch (err: any) { setError(err.message); } finally { setSubmitting(false); } };
-
   const handleDelete = async () => { if (!deleteId) return; const { error } = await supabase.from('products').delete().eq('id', deleteId); if (error) { setError(error.message); } else { setDeleteId(null); await fetchData(); } };
 
   if (loading) return (<div className="flex items-center justify-center h-full p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);

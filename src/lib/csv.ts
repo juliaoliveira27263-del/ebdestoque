@@ -16,7 +16,6 @@ export function exportToCSV(
     headers.map(escapeCSV).join(','),
     ...rows.map((row) => row.map(escapeCSV).join(',')),
   ].join('\r\n');
-
   const bom = '\uFEFF';
   const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
