@@ -74,8 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message };
     if (!data.user) return { error: 'Falha ao criar conta' };
 
-    // The database trigger handle_new_user() automatically creates the profile
-    // with admin role if no admin exists, otherwise vendedor.
     await fetchProfile(data.user.id);
     return { error: null };
   };

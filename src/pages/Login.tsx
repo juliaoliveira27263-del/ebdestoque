@@ -22,9 +22,7 @@ export default function Login() {
     setSubmitting(true);
     const { error } = await signIn(email, password);
     if (error) {
-      setError(error === 'Invalid login credentials'
-        ? 'E-mail ou senha incorretos.'
-        : error);
+      setError(error === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error);
       setSubmitting(false);
     } else {
       navigate('/');

@@ -17,16 +17,12 @@ export default function RedefinirSenha() {
   const [verifying, setVerifying] = useState(true);
 
   useEffect(() => {
-    // Supabase PKCE flow: the recovery token is in the URL hash/query.
-    // onAuthStateChange will fire with PASSWORD_RECOVERY event.
-    // We just need to wait for the session to be established.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setVerifying(false);
       }
     });
 
-    // Also check if we already have a session (token already processed)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setVerifying(false);
     });
