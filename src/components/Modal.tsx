@@ -27,10 +27,7 @@ export default function Modal({ open, onClose, title, children, maxWidth = 'max-
       <div className={`relative w-full ${maxWidth} bg-white dark:bg-dark-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-dark-700 animate-scale-in max-h-[90vh] overflow-y-auto`}>
         <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-dark-700">
           <h2 className="text-lg font-bold text-gray-900 dark:text-dark-50">{title}</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 text-gray-500 dark:text-dark-300 transition-colors"
-          >
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 text-gray-500 dark:text-dark-300 transition-colors">
             <X size={20} />
           </button>
         </div>

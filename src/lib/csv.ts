@@ -1,9 +1,9 @@
 export function exportToCSV(filename: string, headers: string[], rows: (string | number)[][]): void {
   const csvContent = [
     headers.join(','),
-    ...rows.map((row) =>
+    ...rows.map((row: (string | number)[]) =>
       row
-        .map((cell) => {
+        .map((cell: string | number) => {
           const value = String(cell ?? '');
           if (value.includes(',') || value.includes('"') || value.includes('\n')) {
             return `"${value.replace(/"/g, '""')}"`;

@@ -1,138 +1,137 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Search, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 import Modal from '../components/Modal';
 import Badge from '../components/Badge';
-import { toast } from 'sonner';
 import { exportToCSV } from '../lib/csv';
-import { Product, Industry, Category } from '../lib/types';
+import type { Product, Industry, Category } from '../lib/types';
 
-interface ProductWithRelations extends Product {
-  industries: { name: string } | null;
-  categories: { name: string } | null;
+interface ProductFormData {
+  name: string;
+  description: string;
+  sku: string;
+  stock_quantity: number;
+  min_stock: number;
+  unit: string;
+  industry_id: string;
+  category_id: string;
+  image_url: string;
 }
 
+const emptyForm: ProductFormData = {
+  name: '',
+  description: '',
+  sku: '',
+  stock_quantity: 0,
+  min_stock: 0,
+  unit: 'un',
+  industry_id: '',
+  category_id: '',
+  image_url: '',
+};
+
 export default function Products() {
-  const [products, setProducts] = useState<ProductWithRelations[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [industries, setIndustries] = useState<Industry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [search, setSearch] = useState<string>('');
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    sku: '',
-    category_id: '',
-    industry_id: '',
-    stock_quantity: '0',
-    min_stock: '0',
-    unit: 'un',
-    image_url: '',
-  });
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ProductFormData>(emptyForm);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchProducts();
-    fetchIndustries();
-    fetchCategories();
+    fetchAll();
   }, []);
 
-  const fetchProducts = async (): Promise<void> => {
+  async function fetchAll() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, industries(name), categories(name)')
-        .order('name');
-      if (error) throw error;
-      setProducts((data ?? []) as ProductWithRelations[]);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao carregar produtos';
-      toast.error(message);
+      const [productsRes, industriesRes, categoriesRes] = await Promise.all([
+        supabase.from('products').select('*').order('created_at', { ascending: false }),
+        supabase.from('industries').select('*').order('name'),
+        supabase.from('categories').select('*').order('name'),
+      ]);
+      setProducts((productsRes.data as Product[] | null) ?? []);
+      setIndustries((industriesRes.data as Industry[] | null) ?? []);
+      setCategories((categoriesRes.data as Category[] | null) ?? []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const fetchIndustries = async (): Promise<void> => {
-    const { data, error } = await supabase
-      .from('industries')
-      .select('*')
-      .eq('active', true)
-      .order('name');
-    if (error) {
-      toast.error('Erro ao carregar indústrias');
-      return;
-    }
-    setIndustries(data ?? []);
-  };
+  function getIndustryName(id: string | null): string {
+    if (!id) return '-';
+    const ind = industries.find((i) => i.id === id);
+    return ind ? ind.name : '-';
+  }
 
-  const fetchCategories = async (): Promise<void> => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('name');
-    if (error) {
-      toast.error('Erro ao carregar categorias');
-      return;
-    }
-    setCategories(data ?? []);
-  };
+  function getCategoryName(id: string | null): string {
+    if (!id) return '-';
+    const cat = categories.find((c) => c.id === id);
+    return cat ? cat.name : '-';
+  }
 
-  const handleOpenCreate = (): void => {
-    setEditingProduct(null);
-    setFormData({
-      name: '',
-      description: '',
-      sku: '',
-      category_id: '',
-      industry_id: '',
-      stock_quantity: '0',
-      min_stock: '0',
-      unit: 'un',
-      image_url: '',
-    });
+  const filtered = products.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.sku ?? '').toLowerCase().includes(search.toLowerCase()),
+  );
+
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyForm);
     setModalOpen(true);
-  };
+  }
 
-  const handleOpenEdit = (product: Product): void => {
-    setEditingProduct(product);
-    setFormData({
+  function openEdit(product: Product) {
+    setEditingId(product.id);
+    setForm({
       name: product.name,
       description: product.description ?? '',
       sku: product.sku ?? '',
-      category_id: product.category_id ?? '',
-      industry_id: product.industry_id ?? '',
-      stock_quantity: String(product.stock_quantity),
-      min_stock: String(product.min_stock),
+      stock_quantity: product.stock_quantity,
+      min_stock: product.min_stock,
       unit: product.unit,
+      industry_id: product.industry_id ?? '',
+      category_id: product.category_id ?? '',
       image_url: product.image_url ?? '',
     });
     setModalOpen(true);
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: Number(value) }));
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setSaving(true);
     try {
       const payload = {
-        name: formData.name,
-        description: formData.description || null,
-        sku: formData.sku || null,
-        category_id: formData.category_id || null,
-        industry_id: formData.industry_id || null,
-        stock_quantity: parseInt(formData.stock_quantity, 10) || 0,
-        min_stock: parseInt(formData.min_stock, 10) || 0,
-        unit: formData.unit,
-        image_url: formData.image_url || null,
+        name: form.name,
+        description: form.description || null,
+        sku: form.sku || null,
+        stock_quantity: form.stock_quantity,
+        min_stock: form.min_stock,
+        unit: form.unit,
+        industry_id: form.industry_id || null,
+        category_id: form.category_id || null,
+        image_url: form.image_url || null,
       };
 
-      if (editingProduct) {
-        const { error } = await supabase
-          .from('products')
-          .update(payload)
-          .eq('id', editingProduct.id);
+      if (editingId) {
+        const { error } = await supabase.from('products').update(payload).eq('id', editingId);
         if (error) throw error;
         toast.success('Produto atualizado com sucesso');
       } else {
@@ -141,306 +140,272 @@ export default function Products() {
         toast.success('Produto criado com sucesso');
       }
       setModalOpen(false);
-      fetchProducts();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao salvar produto';
-      toast.error(message);
+      fetchAll();
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('Erro ao salvar produto');
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
-  const handleDelete = async (product: Product): Promise<void> => {
+  async function handleDelete(product: Product) {
     if (!confirm(`Desativar o produto "${product.name}"?`)) return;
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ active: false })
-        .eq('id', product.id);
+      const { error } = await supabase.from('products').update({ active: false }).eq('id', product.id);
       if (error) throw error;
       toast.success('Produto desativado');
-      fetchProducts();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao desativar produto';
-      toast.error(message);
+      fetchAll();
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Erro ao desativar produto');
     }
-  };
+  }
 
-  const handleExportCSV = (): void => {
+  function handleExport() {
     const headers = ['Nome', 'SKU', 'Indústria', 'Categoria', 'Estoque', 'Estoque Mín', 'Unidade', 'Status'];
-    const rows = filteredProducts.map((p: ProductWithRelations) => [
+    const rows = filtered.map((p) => [
       p.name,
       p.sku ?? '',
-      p.industries?.name ?? '',
-      p.categories?.name ?? '',
+      getIndustryName(p.industry_id),
+      getCategoryName(p.category_id),
       p.stock_quantity,
       p.min_stock,
       p.unit,
       p.active ? 'Ativo' : 'Inativo',
     ]);
-    exportToCSV('produtos.csv', headers, rows);
-  };
-
-  const filteredProducts = products.filter((p: ProductWithRelations) => {
-    const searchLower = search.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(searchLower) ||
-      (p.sku ?? '').toLowerCase().includes(searchLower) ||
-      (p.industries?.name ?? '').toLowerCase().includes(searchLower)
-    );
-  });
-
-  const stockVariant = (product: Product): 'success' | 'warning' | 'error' => {
-    if (product.stock_quantity === 0) return 'error';
-    if (product.stock_quantity <= product.min_stock) return 'warning';
-    return 'success';
-  };
+    exportToCSV('produtos', headers, rows);
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Produtos</h1>
-          <p className="text-dark-400 mt-1">Gerenciar produtos do catálogo</p>
+          <p className="text-dark-400 mt-1">Gerencie os produtos do sistema</p>
         </div>
         <div className="flex gap-2">
           <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-dark-800 border border-dark-700 text-white rounded-lg hover:bg-dark-700 transition-colors"
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-dark-800 text-white rounded-lg hover:bg-dark-700 transition"
           >
-            <Download size={18} />
-            Exportar
+            <Download size={18} /> Exportar
           </button>
           <button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
           >
-            <Plus size={18} />
-            Novo Produto
+            <Plus size={18} /> Novo produto
           </button>
         </div>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={20} />
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" />
         <input
           type="text"
-          placeholder="Buscar por nome, SKU ou indústria..."
+          placeholder="Buscar por nome ou SKU..."
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-dark-800 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500 placeholder-dark-400"
+          className="w-full pl-10 pr-4 py-2 bg-dark-900 border border-dark-800 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:border-emerald-500"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-dark-800 border border-dark-700 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-dark-700">
-                <th className="text-left p-4 text-dark-300 font-semibold">Nome</th>
-                <th className="text-left p-4 text-dark-300 font-semibold">SKU</th>
-                <th className="text-left p-4 text-dark-300 font-semibold">Indústria</th>
-                <th className="text-left p-4 text-dark-300 font-semibold">Estoque</th>
-                <th className="text-left p-4 text-dark-300 font-semibold">Status</th>
-                <th className="text-right p-4 text-dark-300 font-semibold">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+      <div className="bg-dark-900 border border-dark-800 rounded-lg overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-dark-400">Carregando...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-dark-950 border-b border-dark-800">
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-dark-400">
-                    Carregando...
-                  </td>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Nome</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">SKU</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Indústria</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Estoque</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Mín</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-dark-400">Status</th>
+                  <th className="text-right px-4 py-3 text-sm font-medium text-dark-400">Ações</th>
                 </tr>
-              ) : filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-dark-400">
-                    Nenhum produto encontrado
-                  </td>
-                </tr>
-              ) : (
-                filteredProducts.map((product: ProductWithRelations) => (
-                  <tr
-                    key={product.id}
-                    className="border-b border-dark-700 hover:bg-dark-700/50 transition-colors"
-                  >
-                    <td className="p-4 text-white">{product.name}</td>
-                    <td className="p-4 text-dark-300">{product.sku ?? '-'}</td>
-                    <td className="p-4 text-dark-300">
-                      {product.industries?.name ?? '-'}
-                    </td>
-                    <td className="p-4">
-                      <span className="text-white">
-                        {product.stock_quantity} {product.unit}
-                      </span>
-                      {product.stock_quantity <= product.min_stock && (
-                        <span className="text-warning-500 text-xs ml-2">Mín: {product.min_stock}</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <Badge variant={stockVariant(product)}>
-                          {product.stock_quantity === 0
-                            ? 'Sem estoque'
-                            : product.stock_quantity <= product.min_stock
-                            ? 'Estoque baixo'
-                            : 'Em estoque'}
-                        </Badge>
-                        {!product.active && <Badge variant="default">Inativo</Badge>}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(product)}
-                          className="p-2 text-dark-300 hover:text-white hover:bg-dark-700 rounded-lg transition-colors"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product)}
-                          className="p-2 text-dark-300 hover:text-error-500 hover:bg-dark-700 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-dark-800">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-dark-400">
+                      Nenhum produto encontrado
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  filtered.map((product) => (
+                    <tr key={product.id} className="hover:bg-dark-950">
+                      <td className="px-4 py-3 text-white">{product.name}</td>
+                      <td className="px-4 py-3 text-dark-400">{product.sku ?? '-'}</td>
+                      <td className="px-4 py-3 text-dark-400">{getIndustryName(product.industry_id)}</td>
+                      <td className="px-4 py-3 text-white">{product.stock_quantity} {product.unit}</td>
+                      <td className="px-4 py-3 text-dark-400">{product.min_stock}</td>
+                      <td className="px-4 py-3">
+                        {product.active ? (
+                          <Badge variant="success">Ativo</Badge>
+                        ) : (
+                          <Badge variant="error">Inativo</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => openEdit(product)}
+                            className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded transition"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product)}
+                            className="p-2 text-dark-400 hover:text-red-400 hover:bg-dark-800 rounded transition"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingProduct ? 'Editar Produto' : 'Novo Produto'}
-        maxWidth="max-w-lg"
+        title={editingId ? 'Editar produto' : 'Novo produto'}
+        maxWidth="2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-dark-300 text-sm mb-1">Nome *</label>
+            <label className="block text-sm text-dark-400 mb-1">Nome *</label>
             <input
               type="text"
+              name="name"
               required
-              value={formData.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+              value={form.name}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
-            <label className="block text-dark-300 text-sm mb-1">Descrição</label>
+            <label className="block text-sm text-dark-400 mb-1">Descrição</label>
             <textarea
-              value={formData.description}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+              name="description"
+              value={form.description}
+              onChange={handleInputChange}
               rows={3}
-              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-dark-300 text-sm mb-1">SKU</label>
+              <label className="block text-sm text-dark-400 mb-1">SKU</label>
               <input
                 type="text"
-                value={formData.sku}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, sku: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+                name="sku"
+                value={form.sku}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
-              <label className="block text-dark-300 text-sm mb-1">Unidade</label>
+              <label className="block text-sm text-dark-400 mb-1">Unidade</label>
               <input
                 type="text"
-                value={formData.unit}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, unit: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+                name="unit"
+                value={form.unit}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
-          </div>
-          <div>
-            <label className="block text-dark-300 text-sm mb-1">Indústria</label>
-            <select
-              value={formData.industry_id}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setFormData({ ...formData, industry_id: e.target.value })
-              }
-              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
-            >
-              <option value="">Selecione...</option>
-              {industries.map((industry: Industry) => (
-                <option key={industry.id} value={industry.id}>
-                  {industry.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-dark-300 text-sm mb-1">Categoria</label>
-            <select
-              value={formData.category_id}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setFormData({ ...formData, category_id: e.target.value })
-              }
-              className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
-            >
-              <option value="">Selecione...</option>
-              {categories.map((category: Category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-dark-300 text-sm mb-1">Estoque</label>
+              <label className="block text-sm text-dark-400 mb-1">Quantidade em estoque</label>
               <input
                 type="number"
-                min="0"
-                value={formData.stock_quantity}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, stock_quantity: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+                name="stock_quantity"
+                min={0}
+                value={form.stock_quantity}
+                onChange={handleNumberChange}
+                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
-              <label className="block text-dark-300 text-sm mb-1">Estoque Mínimo</label>
+              <label className="block text-sm text-dark-400 mb-1">Estoque mínimo</label>
               <input
                 type="number"
-                min="0"
-                value={formData.min_stock}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setFormData({ ...formData, min_stock: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-dark-900 border border-dark-700 text-white rounded-lg focus:outline-none focus:border-blue-500"
+                name="min_stock"
+                min={0}
+                value={form.min_stock}
+                onChange={handleNumberChange}
+                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-dark-400 mb-1">Indústria</label>
+              <select
+                name="industry_id"
+                value={form.industry_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">Selecione...</option>
+                {industries.map((ind) => (
+                  <option key={ind.id} value={ind.id}>{ind.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-dark-400 mb-1">Categoria</label>
+              <select
+                name="category_id"
+                value={form.category_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">Selecione...</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm text-dark-400 mb-1">URL da imagem</label>
+            <input
+              type="text"
+              name="image_url"
+              value={form.image_url}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="px-4 py-2 text-dark-300 hover:text-white transition-colors"
+              className="px-4 py-2 bg-dark-800 text-white rounded-lg hover:bg-dark-700 transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={saving}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
             >
-              {editingProduct ? 'Salvar' : 'Criar'}
+              {saving ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </form>

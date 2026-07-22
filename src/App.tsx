@@ -50,7 +50,6 @@ export default function App() {
       <Route path="/cadastro" element={<Cadastro />} />
       <Route path="/esqueci-senha" element={<EsqueciSenha />} />
       <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-
       <Route path="/" element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="produtos" element={<Products />} />
@@ -63,14 +62,12 @@ export default function App() {
         <Route path="configuracoes" element={<Settings />} />
         <Route path="perfil" element={<Profile />} />
       </Route>
-
       <Route path="/" element={<ProtectedRoute><NonAdminRoute><UserLayout /></NonAdminRoute></ProtectedRoute>}>
         <Route path="solicitacao" element={<Solicitacao />} />
         <Route path="industria/:id" element={<IndustriaMateriais />} />
         <Route path="meu-perfil" element={<MeuPerfil />} />
         <Route path="notificacoes" element={<Notifications />} />
       </Route>
-
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

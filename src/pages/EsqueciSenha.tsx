@@ -11,7 +11,6 @@ export default function EsqueciSenha() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-
   const isDark = theme === 'dark';
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -19,69 +18,32 @@ export default function EsqueciSenha() {
     setLoading(true);
     const { error } = await resetPassword(email);
     setLoading(false);
-    if (error) {
-      toast.error(error);
-    } else {
-      setSent(true);
-      toast.success('Email de recuperação enviado!');
-    }
+    if (error) { toast.error(error); } else { setSent(true); toast.success('Email de recuperação enviado!'); }
   };
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${isDark ? 'bg-dark-950' : 'bg-gray-50'}`}>
-      <button
-        onClick={toggleTheme}
-        className={`absolute top-4 right-4 p-2.5 rounded-xl transition-colors ${isDark ? 'bg-dark-800 text-dark-300 hover:bg-dark-700' : 'bg-white text-gray-600 hover:bg-gray-100 shadow-sm border border-gray-200'}`}
-      >
-        {isDark ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
-
+      <button onClick={toggleTheme} className={`absolute top-4 right-4 p-2.5 rounded-xl transition-colors ${isDark ? 'bg-dark-800 text-dark-300 hover:bg-dark-700' : 'bg-white text-gray-600 hover:bg-gray-100 shadow-sm border border-gray-200'}`}>{isDark ? <Sun size={20} /> : <Moon size={20} />}</button>
       <div className={`w-full max-w-md p-8 rounded-2xl shadow-xl ${isDark ? 'bg-dark-900 border border-dark-800' : 'bg-white border border-gray-200'}`}>
-        <Link to="/login" className={`flex items-center gap-2 text-sm mb-6 ${isDark ? 'text-dark-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>
-          <ArrowLeft size={16} /> Voltar ao login
-        </Link>
-
+        <Link to="/login" className={`flex items-center gap-2 text-sm mb-6 ${isDark ? 'text-dark-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}><ArrowLeft size={16} /> Voltar ao login</Link>
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <span className="text-white font-bold text-xl">EBD</span>
-          </div>
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4"><span className="text-white font-bold text-xl">EBD</span></div>
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Esqueci a Senha</h1>
-          <p className={`text-sm text-center mt-2 ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>
-            {sent ? 'Verifique seu email para redefinir a senha.' : 'Digite seu email para receber o link de recuperação.'}
-          </p>
+          <p className={`text-sm text-center mt-2 ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>{sent ? 'Verifique seu email para redefinir a senha.' : 'Digite seu email para receber o link de recuperação.'}</p>
         </div>
-
         {!sent ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Email</label>
               <div className="relative">
                 <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-dark-400' : 'text-gray-400'}`} size={18} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                  required
-                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition-colors ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`}
-                  placeholder="seu@email.com"
-                />
+                <input type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} required className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition-colors ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`} placeholder="seu@email.com" />
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Enviando...' : 'Enviar link de recuperação'}
-            </button>
+            <button type="submit" disabled={loading} className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">{loading ? 'Enviando...' : 'Enviar link de recuperação'}</button>
           </form>
         ) : (
-          <div className="text-center">
-            <Link to="/login" className="inline-block py-2.5 px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700 transition-colors">
-              Voltar ao login
-            </Link>
-          </div>
+          <div className="text-center"><Link to="/login" className="inline-block py-2.5 px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700 transition-colors">Voltar ao login</Link></div>
         )}
       </div>
     </div>
