@@ -18,6 +18,7 @@ interface AuthContextValue {
   isSupervisor: boolean;
   isVendedor: boolean;
   isPromotor: boolean;
+  isNonAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -29,15 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async (uid: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .maybeSingle();
-    if (error) {
-      console.error('Error fetching profile:', error);
-      return;
-    }
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+    if (error) { console.error('Error fetching profile:', error); return; }
     setProfile(data as Profile | null);
   }, []);
 
@@ -45,37 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      if (session?.user) { fetchProfile(session.user.id).finally(() => setLoading(false)); }
+      else { setLoading(false); }
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        (async () => { await fetchProfile(session.user.id); })();
-      } else {
-        setProfile(null);
-      }
+      if (session?.user) { (async () => { await fetchProfile(session.user.id); })(); }
+      else { setProfile(null); }
     });
-
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
     if (error) return { error: error.message };
     if (!data.user) return { error: 'Falha ao criar conta' };
-
-    // The database trigger handle_new_user() automatically creates the profile
-    // with admin role if no admin exists, otherwise vendedor.
     await fetchProfile(data.user.id);
     return { error: null };
   };
@@ -87,25 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setSession(null);
-    setUser(null);
-  };
-
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
-  };
-
+  const signOut = async () => { await supabase.auth.signOut(); setProfile(null); setSession(null); setUser(null); };
+  const refreshProfile = async () => { if (user) await fetchProfile(user.id); };
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/redefinir-senha` });
     if (error) return { error: error.message };
     return { error: null };
   };
-
   const updatePassword = async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return { error: error.message };
@@ -114,12 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextValue = {
     session, user, profile, loading,
-    signUp, signIn, signOut, refreshProfile,
-    resetPassword, updatePassword,
+    signUp, signIn, signOut, refreshProfile, resetPassword, updatePassword,
     isAdmin: profile?.role === 'admin',
     isSupervisor: profile?.role === 'supervisor',
     isVendedor: profile?.role === 'vendedor',
     isPromotor: profile?.role === 'promotor',
+    isNonAdmin: profile?.role !== 'admin' && !!profile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

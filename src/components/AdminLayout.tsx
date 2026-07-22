@@ -30,7 +30,7 @@ const roleLabels: Record<string, string> = {
   admin: 'Administrador', supervisor: 'Supervisor', vendedor: 'Vendedor', promotor: 'Promotor',
 };
 
-export default function Layout() {
+export default function AdminLayout() {
   const { profile, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
