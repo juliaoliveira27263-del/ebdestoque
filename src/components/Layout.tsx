@@ -1,22 +1,10 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Package,
-  ClipboardList,
-  ArrowLeftRight,
-  Factory,
-  BarChart3,
-  Bell,
-  Users,
-  Settings,
-  User,
-  LogOut,
-  Menu,
-  X,
+  LayoutDashboard, Package, ClipboardList, ArrowLeftRight, Factory,
+  BarChart3, Bell, Users, Settings, User, LogOut, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import type { Notification } from '../lib/types';
 import { supabase } from '../lib/supabase';
 
 interface NavItem {
@@ -39,10 +27,7 @@ const navItems: NavItem[] = [
 ];
 
 const roleLabels: Record<string, string> = {
-  admin: 'Administrador',
-  supervisor: 'Supervisor',
-  vendedor: 'Vendedor',
-  promotor: 'Promotor',
+  admin: 'Administrador', supervisor: 'Supervisor', vendedor: 'Vendedor', promotor: 'Promotor',
 };
 
 export default function Layout() {
@@ -52,19 +37,13 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
+  useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     if (!profile) return;
     const channel = supabase
       .channel('notifications')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
-        () => fetchUnread()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetchUnread())
       .subscribe();
     fetchUnread();
     return () => { supabase.removeChannel(channel); };
@@ -88,15 +67,10 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-dark-950 flex">
-      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-dark-900 border-r border-dark-700 flex flex-col z-50 transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -112,10 +86,7 @@ export default function Layout() {
               <p className="text-dark-400 text-xs leading-tight">de Estoque</p>
             </div>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-dark-400 hover:text-white"
-          >
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-dark-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -130,9 +101,7 @@ export default function Layout() {
                 end={item.to === '/'}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-600 text-white'
-                      : 'text-dark-300 hover:text-white hover:bg-dark-800'
+                    isActive ? 'bg-primary-600 text-white' : 'text-dark-300 hover:text-white hover:bg-dark-800'
                   }`
                 }
               >
@@ -169,14 +138,9 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile header */}
         <header className="lg:hidden h-14 flex items-center justify-between px-4 bg-dark-900 border-b border-dark-700 sticky top-0 z-30">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-dark-300 hover:text-white"
-          >
+          <button onClick={() => setSidebarOpen(true)} className="text-dark-300 hover:text-white">
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex items-center gap-2">

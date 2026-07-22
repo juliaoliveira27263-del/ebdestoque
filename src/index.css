@@ -3,21 +3,14 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
-  html {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
+  * { -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     @apply bg-dark-950 text-dark-100 font-sans antialiased;
     overscroll-behavior: none;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
-  input, select, textarea {
-    font-size: 16px;
-  }
+  input, select, textarea { font-size: 16px; }
 }
 
 @layer components {
@@ -30,60 +23,26 @@
   .btn-secondary {
     @apply btn bg-dark-700 text-dark-100 hover:bg-dark-600 border border-dark-600;
   }
-  .btn-danger {
-    @apply btn bg-error-600 text-white hover:bg-error-500;
-  }
-  .btn-ghost {
-    @apply btn text-dark-300 hover:text-white hover:bg-dark-700;
-  }
+  .btn-danger { @apply btn bg-error-600 text-white hover:bg-error-500; }
+  .btn-ghost { @apply btn text-dark-300 hover:text-white hover:bg-dark-700; }
   .input {
     @apply w-full bg-dark-800 border border-dark-600 rounded-lg px-4 py-2.5 text-white placeholder-dark-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors;
   }
-  .label {
-    @apply block text-sm font-medium text-dark-300 mb-1.5;
-  }
-  .card {
-    @apply bg-dark-800 border border-dark-700 rounded-xl;
-  }
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-  .badge-success {
-    @apply badge bg-success-500/15 text-success-500;
-  }
-  .badge-warning {
-    @apply badge bg-warning-500/15 text-warning-500;
-  }
-  .badge-error {
-    @apply badge bg-error-500/15 text-error-500;
-  }
-  .badge-primary {
-    @apply badge bg-primary-500/15 text-primary-400;
-  }
-  .badge-neutral {
-    @apply badge bg-dark-600 text-dark-300;
-  }
+  .label { @apply block text-sm font-medium text-dark-300 mb-1.5; }
+  .card { @apply bg-dark-800 border border-dark-700 rounded-xl; }
+  .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+  .badge-success { @apply badge bg-success-500/15 text-success-500; }
+  .badge-warning { @apply badge bg-warning-500/15 text-warning-500; }
+  .badge-error { @apply badge bg-error-500/15 text-error-500; }
+  .badge-primary { @apply badge bg-primary-600/15 text-primary-500; }
+  .badge-neutral { @apply badge bg-dark-600 text-dark-300; }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #2d2e34;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3d3e45;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d2e34; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3d3e45; }
 
-/* Prevent iOS zoom on input focus */
 @supports (-webkit-touch-callout: none) {
-  input, select, textarea {
-    font-size: 16px;
-  }
+  input, select, textarea { font-size: 16px; }
 }

@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Profile } from './types';
 
@@ -12,6 +12,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
   isAdmin: boolean;
   isSupervisor: boolean;
   isVendedor: boolean;
@@ -54,9 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        (async () => {
-          await fetchProfile(session.user.id);
-        })();
+        (async () => { await fetchProfile(session.user.id); })();
       } else {
         setProfile(null);
       }
@@ -69,9 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { name },
-      },
+      options: { data: { name } },
     });
     if (error) return { error: error.message };
     if (!data.user) return { error: 'Falha ao criar conta' };
@@ -83,14 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
-    if (data.user) {
-      await fetchProfile(data.user.id);
-    }
+    if (data.user) await fetchProfile(data.user.id);
     return { error: null };
   };
 
@@ -105,15 +98,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user.id);
   };
 
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { error: error.message };
+    return { error: null };
+  };
+
   const value: AuthContextValue = {
-    session,
-    user,
-    profile,
-    loading,
-    signUp,
-    signIn,
-    signOut,
-    refreshProfile,
+    session, user, profile, loading,
+    signUp, signIn, signOut, refreshProfile,
+    resetPassword, updatePassword,
     isAdmin: profile?.role === 'admin',
     isSupervisor: profile?.role === 'supervisor',
     isVendedor: profile?.role === 'vendedor',

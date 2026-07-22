@@ -1,55 +1,33 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Package, Mail, Lock, User as UserIcon, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Package, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { supabase } from '../lib/supabase';
 
 export default function Login() {
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [userCount, setUserCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (user && !loading) navigate('/');
   }, [user, loading, navigate]);
 
-  useEffect(() => {
-    (async () => {
-      const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-      setUserCount(count ?? 0);
-      if (count === 0) setMode('signup');
-    })();
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-
-    if (mode === 'signup') {
-      const { error } = await signUp(email, password, name);
-      if (error) {
-        setError(error);
-        setSubmitting(false);
-      } else {
-        navigate('/');
-      }
+    const { error } = await signIn(email, password);
+    if (error) {
+      setError(error === 'Invalid login credentials'
+        ? 'E-mail ou senha incorretos.'
+        : error);
+      setSubmitting(false);
     } else {
-      const { error } = await signIn(email, password);
-      if (error) {
-        setError(error);
-        setSubmitting(false);
-      } else {
-        navigate('/');
-      }
+      navigate('/');
     }
   };
 
@@ -63,44 +41,17 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dark-950 p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md animate-slide-up">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 mb-4 shadow-lg shadow-primary-600/30">
             <Package className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Controle de Estoque</h1>
-          <p className="text-dark-400 mt-1 text-sm">
-            {mode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
-          </p>
+          <p className="text-dark-400 mt-1 text-sm">Acesse sua conta</p>
         </div>
 
         <div className="card p-6">
-          {userCount === 0 && (
-            <div className="mb-4 p-3 rounded-lg bg-primary-600/10 border border-primary-600/30 text-primary-400 text-sm flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Este é o primeiro acesso. Você será o Administrador Master.</span>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="label">Nome completo</label>
-                <div className="relative">
-                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="input pl-10"
-                    placeholder="Seu nome"
-                    required
-                    autoComplete="name"
-                  />
-                </div>
-              </div>
-            )}
-
             <div>
               <label className="label">E-mail</label>
               <div className="relative">
@@ -122,16 +73,31 @@ export default function Login() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input pl-10"
+                  className="input pl-10 pr-10"
                   placeholder="••••••••"
                   required
-                  minLength={6}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Link
+                to="/esqueci-senha"
+                className="text-sm text-primary-500 hover:text-primary-400 transition-colors"
+              >
+                Esqueci minha senha
+              </Link>
             </div>
 
             {error && (
@@ -141,36 +107,23 @@ export default function Login() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn-primary w-full"
-            >
+            <button type="submit" disabled={submitting} className="btn-primary w-full">
               {submitting ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : mode === 'login' ? (
-                'Entrar'
               ) : (
-                'Criar conta'
+                <>Entrar <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </form>
 
-          {userCount !== 0 && (
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => {
-                  setMode(mode === 'login' ? 'signup' : 'login');
-                  setError(null);
-                }}
-                className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
-              >
-                {mode === 'login'
-                  ? 'Não tem conta? Cadastre-se'
-                  : 'Já tem conta? Entrar'}
-              </button>
-            </div>
-          )}
+          <div className="mt-6 text-center">
+            <p className="text-dark-400 text-sm">
+              Não tem conta?{' '}
+              <Link to="/cadastro" className="text-primary-500 hover:text-primary-400 font-medium transition-colors">
+                Criar conta
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import Login from './pages/Login';
+import Cadastro from './pages/Cadastro';
+import EsqueciSenha from './pages/EsqueciSenha';
+import RedefinirSenha from './pages/RedefinirSenha';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Requests from './pages/Requests';
@@ -43,6 +46,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/cadastro" element={<Cadastro />} />
+      <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+      <Route path="/redefinir-senha" element={<RedefinirSenha />} />
       <Route
         path="/"
         element={
@@ -55,32 +61,11 @@ export default function App() {
         <Route path="produtos" element={<Products />} />
         <Route path="solicitacoes" element={<Requests />} />
         <Route path="movimentacoes" element={<Movements />} />
-        <Route
-          path="industrias"
-          element={
-            <AdminRoute>
-              <Industries />
-            </AdminRoute>
-          }
-        />
+        <Route path="industrias" element={<AdminRoute><Industries /></AdminRoute>} />
         <Route path="relatorios" element={<Reports />} />
         <Route path="notificacoes" element={<Notifications />} />
-        <Route
-          path="usuarios"
-          element={
-            <AdminRoute>
-              <Users />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="configuracoes"
-          element={
-            <AdminRoute>
-              <Settings />
-            </AdminRoute>
-          }
-        />
+        <Route path="usuarios" element={<AdminRoute><Users /></AdminRoute>} />
+        <Route path="configuracoes" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="perfil" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

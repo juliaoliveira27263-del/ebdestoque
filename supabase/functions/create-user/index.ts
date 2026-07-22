@@ -26,7 +26,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(authHeader.replace("Bearer ", ""));
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -34,7 +36,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Verify the requesting user is an admin
     const { data: profile, error: profileError } = await supabaseClient
       .from("profiles")
       .select("role, active")
@@ -58,7 +59,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Use service role to create the user
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -71,13 +71,12 @@ Deno.serve(async (req: Request) => {
     });
 
     if (createError || !authData.user) {
-      return new Response(JSON.stringify({ error: createError?.message ?? "Failed to create user" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: createError?.message ?? "Failed to create user" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Create profile
     const { error: profileInsertError } = await adminClient.from("profiles").insert({
       id: authData.user.id,
       name,
@@ -87,7 +86,6 @@ Deno.serve(async (req: Request) => {
     });
 
     if (profileInsertError) {
-      // Try to clean up the auth user
       await adminClient.auth.admin.deleteUser(authData.user.id);
       return new Response(JSON.stringify({ error: profileInsertError.message }), {
         status: 400,
