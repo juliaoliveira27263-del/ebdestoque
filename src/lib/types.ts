@@ -1,73 +1,97 @@
-export type UserRole = 'admin' | 'non_admin';
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'fulfilled';
-export type MovementType = 'in' | 'out' | 'adjustment';
-
-export const roleLabels: Record<UserRole, string> = {
-  admin: 'Administrador',
-  non_admin: 'Usuário',
-};
-
-export const statusLabels: Record<RequestStatus, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovado',
-  rejected: 'Rejeitado',
-  fulfilled: 'Atendido',
-};
-
-export const movementTypeLabels: Record<MovementType, string> = {
-  in: 'Entrada',
-  out: 'Saída',
-  adjustment: 'Ajuste',
-};
+export type UserRole = 'admin' | 'supervisor' | 'vendedor' | 'promotor';
 
 export interface Profile {
   id: string;
   name: string;
-  email: string;
   role: UserRole;
+  phone: string | null;
   active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Industry {
   id: string;
   name: string;
+  cnpj: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address: string | null;
   active: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Product {
   id: string;
   name: string;
-  sku: string;
-  industry_id: string;
-  quantity: number;
-  min_quantity: number;
+  description: string | null;
+  sku: string | null;
+  category_id: string | null;
+  industry_id: string | null;
+  stock_quantity: number;
+  min_stock: number;
   unit: string;
+  image_url: string | null;
   active: boolean;
   created_at: string;
-  industries?: { name: string }[] | null;
+  updated_at: string;
+  industry?: Industry | null;
+  category?: Category | null;
+}
+
+export interface Request {
+  id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  notes: string | null;
+  total_items: number;
+  created_at: string;
+  updated_at: string;
+  profile?: Profile | null;
+  request_items?: RequestItem[];
+}
+
+export interface RequestItem {
+  id: string;
+  request_id: string;
+  product_id: string;
+  quantity: number;
+  industry_id: string | null;
+  created_at: string;
+  product?: Product | null;
+  industry?: Industry | null;
 }
 
 export interface Movement {
   id: string;
   product_id: string;
-  type: MovementType;
+  type: 'in' | 'out' | 'adjustment';
   quantity: number;
-  reason: string;
-  user_id: string;
+  reason: string | null;
+  user_id: string | null;
+  request_id: string | null;
   created_at: string;
-  products?: { name: string; sku: string } | null;
+  product?: Product | null;
+  profile?: Profile | null;
 }
 
-export interface Request {
+export interface Notification {
   id: string;
-  product_id: string;
-  quantity: number;
-  status: RequestStatus;
-  user_id: string;
-  notes: string;
+  user_id: string | null;
+  type: string;
+  title: string;
+  message: string | null;
+  read: boolean;
+  related_id: string | null;
   created_at: string;
-  products?: { name: string; sku: string } | null;
-  profiles?: { name: string } | null;
 }

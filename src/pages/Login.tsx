@@ -1,103 +1,130 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Package, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { toast } from 'sonner';
 
 export default function Login() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const { signIn, user, loading } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
-  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (user && !loading) navigate('/');
+  }, [user, loading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    try {
-      if (mode === 'signin') {
-        await signIn(email, password);
-        navigate('/');
-      } else {
-        await signUp(email, password, name);
-        toast.success('Conta criada! Faça login para continuar.');
-        setMode('signin');
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast.error(msg);
-    } finally {
-      setLoading(false);
+    setError(null);
+    setSubmitting(true);
+    const { error } = await signIn(email, password);
+    if (error) {
+      setError(error === 'Invalid login credentials'
+        ? 'E-mail ou senha incorretos.'
+        : error);
+      setSubmitting(false);
+    } else {
+      navigate('/');
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-primary-950 p-4">
-      <div className="w-full max-w-md bg-primary-900 rounded-xl p-8 shadow-xl">
-        <h1 className="text-2xl font-bold text-white mb-2">EBD Petrolina</h1>
-        <p className="text-red-200 mb-6">Controle de Estoque</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark-950">
+        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setMode('signin')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-              mode === 'signin' ? 'bg-primary-600 text-white' : 'bg-primary-800 text-red-200'
-            }`}
-          >
-            Entrar
-          </button>
-          <button
-            onClick={() => setMode('signup')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-              mode === 'signup' ? 'bg-primary-600 text-white' : 'bg-primary-800 text-red-200'
-            }`}
-          >
-            Cadastrar
-          </button>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-dark-950 p-4">
+      <div className="w-full max-w-md animate-slide-up">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 mb-4 shadow-lg shadow-primary-600/30">
+            <Package className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Controle de Estoque</h1>
+          <p className="text-dark-400 mt-1 text-sm">Acesse sua conta</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'signup' && (
+        <div className="card p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-red-100 mb-1">Nome</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 rounded-lg bg-primary-800 text-white border border-primary-700 focus:border-primary-400 focus:outline-none"
-              />
+              <label className="label">E-mail</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input pl-10"
+                  placeholder="seu@email.com"
+                  required
+                  autoComplete="email"
+                />
+              </div>
             </div>
-          )}
-          <div>
-            <label className="block text-sm text-red-100 mb-1">E-mail</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-lg bg-primary-800 text-white border border-primary-700 focus:border-primary-400 focus:outline-none"
-            />
+
+            <div>
+              <label className="label">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input pl-10 pr-10"
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Link
+                to="/esqueci-senha"
+                className="text-sm text-primary-500 hover:text-primary-400 transition-colors"
+              >
+                Esqueci minha senha
+              </Link>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button type="submit" disabled={submitting} className="btn-primary w-full">
+              {submitting ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>Entrar <ArrowRight className="w-4 h-4" /></>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-dark-400 text-sm">
+              Não tem conta?{' '}
+              <Link to="/cadastro" className="text-primary-500 hover:text-primary-400 font-medium transition-colors">
+                Criar conta
+              </Link>
+            </p>
           </div>
-          <div>
-            <label className="block text-sm text-red-100 mb-1">Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-lg bg-primary-800 text-white border border-primary-700 focus:border-primary-400 focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 disabled:opacity-50"
-          >
-            {loading ? 'Carregando...' : mode === 'signin' ? 'Entrar' : 'Cadastrar'}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );

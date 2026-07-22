@@ -1,184 +1,45 @@
-import { useState, useRef } from 'react';
-import { Upload, Save, User } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import { User, Mail, Phone, Save, AlertCircle, Shield } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
-interface ProfileFormData {
-  name: string;
-  phone: string;
-}
+const roleLabels: Record<string, string> = { admin: 'Administrador', supervisor: 'Supervisor', vendedor: 'Vendedor', promotor: 'Promotor' };
 
 export default function Profile() {
-  const { profile, refreshProfile } = useAuth();
-  const [form, setForm] = useState<ProfileFormData>({
-    name: profile?.name ?? '',
-    phone: profile?.phone ?? '',
-  });
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null);
+  const { profile, user, refreshProfile } = useAuth();
+  const [name, setName] = useState(profile?.name ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  }
-
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!profile) {
-      toast.error('Usuário não encontrado');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${profile.id}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const publicUrl = publicUrlData.publicUrl;
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', profile.id);
-
-      if (updateError) throw updateError;
-
-      setAvatarUrl(publicUrl);
-      await refreshProfile();
-      toast.success('Avatar atualizado com sucesso');
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      toast.error('Erro ao fazer upload do avatar');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!profile) return;
-
-    setSaving(true);
-    try {
-      const payload = {
-        name: form.name,
-        phone: form.phone || null,
-      };
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(payload)
-        .eq('id', profile.id);
-
-      if (error) throw error;
-
-      await refreshProfile();
-      toast.success('Perfil atualizado com sucesso');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      toast.error('Erro ao atualizar perfil');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!profile) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-dark-400">Carregando perfil...</div>
-      </div>
-    );
-  }
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault(); setSaving(true); setError(null); setSuccess(false);
+    const { error } = await supabase.from('profiles').update({ name, phone: phone || null }).eq('id', profile!.id);
+    if (error) { setError(error.message); } else { setSuccess(true); await refreshProfile(); setTimeout(() => setSuccess(false), 3000); }
+    setSaving(false);
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Meu Perfil</h1>
-        <p className="text-dark-400 mt-1">Gerencie suas informações</p>
-      </div>
-
-      <div className="bg-dark-900 border border-dark-800 rounded-lg p-6 max-w-2xl">
-        {/* Avatar */}
-        <div className="flex items-center gap-6 mb-8">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={profile.name}
-              className="w-24 h-24 rounded-full object-cover border-2 border-dark-800"
-            />
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-dark-800 flex items-center justify-center">
-              <User size={40} className="text-dark-400" />
-            </div>
-          )}
+    <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-4">
+      <div><h1 className="text-2xl font-bold text-white">Perfil</h1><p className="text-dark-400 text-sm mt-1">Gerencie suas informações</p></div>
+      <div className="card p-5">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-16 h-16 rounded-full bg-primary-600/15 flex items-center justify-center">
+            <span className="text-primary-500 font-bold text-xl">{profile?.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
+          </div>
           <div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 px-4 py-2 bg-dark-800 text-white rounded-lg hover:bg-dark-700 transition disabled:opacity-50"
-            >
-              <Upload size={18} />
-              {uploading ? 'Enviando...' : 'Alterar avatar'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="hidden"
-            />
+            <p className="text-white font-semibold text-lg">{profile?.name}</p>
+            <div className="flex items-center gap-2 mt-1"><Shield className="w-4 h-4 text-primary-500" /><span className="text-dark-300 text-sm">{roleLabels[profile?.role ?? ''] ?? ''}</span></div>
           </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-dark-400 mb-1">Nome *</label>
-            <input
-              type="text"
-              name="name"
-              required
-              value={form.name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-dark-400 mb-1">Telefone</label>
-            <input
-              type="text"
-              name="phone"
-              value={form.phone}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 bg-dark-950 border border-dark-800 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
-            >
-              <Save size={18} />
-              {saving ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div><label className="label">Nome</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" /><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input pl-10" required /></div></div>
+          <div><label className="label">E-mail</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" /><input type="email" value={user?.email ?? ''} disabled className="input pl-10 opacity-50" /></div><p className="text-dark-400 text-xs mt-1">O e-mail não pode ser alterado</p></div>
+          <div><label className="label">Telefone</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" /><input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="input pl-10" placeholder="(00) 00000-0000" /></div></div>
+          {error && <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span></div>}
+          {success && <div className="p-3 rounded-lg bg-success-500/10 border border-success-500/30 text-success-500 text-sm">Perfil atualizado com sucesso!</div>}
+          <button type="submit" disabled={saving} className="btn-primary">{saving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Save className="w-4 h-4" />Salvar</>}</button>
         </form>
       </div>
     </div>
