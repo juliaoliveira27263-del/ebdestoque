@@ -9,19 +9,14 @@ type RequestWithItems = {
   total_items: number
   notes: string | null
   created_at: string
-  request_items: {
-    id: string
-    quantity: number
-    product_id: string
-    products: { name: string; sku: string } | null
-  }[]
+  request_items: { id: string; quantity: number; product_id: string; products: { name: string; sku: string } | null }[]
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Pendente', color: 'text-warning-700', bg: 'bg-warning-100' },
-  approved: { label: 'Aprovado', color: 'text-accent-700', bg: 'bg-accent-100' },
-  rejected: { label: 'Rejeitado', color: 'text-error-700', bg: 'bg-error-100' },
-  completed: { label: 'Concluído', color: 'text-primary-700', bg: 'bg-primary-100' },
+  approved: { label: 'Aprovada', color: 'text-success-700', bg: 'bg-success-100' },
+  rejected: { label: 'Negada', color: 'text-error-700', bg: 'bg-error-100' },
+  completed: { label: 'Entregue', color: 'text-ebd-700', bg: 'bg-ebd-100' },
 }
 
 export default function StaffMyRequests() {
@@ -29,36 +24,17 @@ export default function StaffMyRequests() {
   const [requests, setRequests] = useState<RequestWithItems[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchRequests()
-  }, [profile])
+  useEffect(() => { fetchRequests() }, [profile])
 
   async function fetchRequests() {
     if (!profile) return
     setLoading(true)
-    const { data } = await supabase
-      .from('requests')
-      .select(`
-        id, status, total_items, notes, created_at,
-        request_items (
-          id, quantity, product_id,
-          products ( name, sku )
-        )
-      `)
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-
+    const { data } = await supabase.from('requests').select(`id, status, total_items, notes, created_at, request_items ( id, quantity, product_id, products ( name, sku ) )`).eq('user_id', profile.id).order('created_at', { ascending: false })
     setRequests(data as unknown as RequestWithItems[] ?? [])
     setLoading(false)
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
-      </div>
-    )
-  }
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 text-ebd-700 animate-spin" /></div>
 
   return (
     <div className="max-w-4xl mx-auto animate-fadeIn">
@@ -78,30 +54,19 @@ export default function StaffMyRequests() {
           {requests.map((req) => {
             const status = statusConfig[req.status] ?? statusConfig.pending
             return (
-              <div key={req.id} className="bg-white rounded-2xl border border-neutral-200 p-5 animate-fadeIn">
+              <div key={req.id} className="bg-white rounded-2xl border border-neutral-200 p-5 animate-fadeIn shadow-card">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center">
-                      <Package className="w-5 h-5 text-neutral-500" />
-                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-ebd-50 flex items-center justify-center"><Package className="w-5 h-5 text-ebd-700" /></div>
                     <div>
-                      <p className="font-semibold text-neutral-900 text-sm">
-                        Solicitação #{req.id.slice(0, 8)}
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        {new Date(req.created_at).toLocaleString('pt-BR')}
-                      </p>
+                      <p className="font-semibold text-neutral-900 text-sm">Solicitação #{req.id.slice(0, 8)}</p>
+                      <p className="text-xs text-neutral-500">{new Date(req.created_at).toLocaleString('pt-BR')}</p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
-                    {status.label}
-                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>{status.label}</span>
                 </div>
-
                 <div className="border-t border-neutral-100 pt-3">
-                  <p className="text-xs text-neutral-500 mb-2">
-                    {req.total_items} item(s) solicitado(s)
-                  </p>
+                  <p className="text-xs text-neutral-500 mb-2">{req.total_items} item(s) solicitado(s)</p>
                   <div className="space-y-1.5">
                     {req.request_items?.map((item) => (
                       <div key={item.id} className="flex items-center justify-between text-sm">
@@ -114,12 +79,7 @@ export default function StaffMyRequests() {
                     ))}
                   </div>
                 </div>
-
-                {req.notes && (
-                  <div className="mt-3 pt-3 border-t border-neutral-100">
-                    <p className="text-xs text-neutral-500">{req.notes}</p>
-                  </div>
-                )}
+                {req.notes && <div className="mt-3 pt-3 border-t border-neutral-100"><p className="text-xs text-neutral-500">{req.notes}</p></div>}
               </div>
             )
           })}

@@ -16,59 +16,36 @@ export default function StaffLayout() {
     navigate('/')
   }
 
-  const roleLabels: Record<string, string> = {
-    promotor: 'Promotor',
-    vendedor: 'Vendedor',
-    supervisor: 'Supervisor',
-  }
-
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
-      {/* Top bar */}
-      <header className="bg-neutral-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+      <header className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-soft">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center">
-            <Package className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-ebd-700 flex items-center justify-center shadow-lg shadow-ebd-700/20">
+            <Package className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-sm">Controle de Estoque</h1>
-            <p className="text-xs text-neutral-400">{roleLabels[profile?.role ?? ''] ?? profile?.role}</p>
+            <h1 className="font-bold text-sm text-neutral-900">EBD Distribuidora</h1>
+            <p className="text-xs text-neutral-400">Solicitação de Materiais</p>
           </div>
         </div>
-
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-sm font-semibold">
+            <div className="w-8 h-8 rounded-full bg-ebd-100 flex items-center justify-center text-sm font-semibold text-ebd-700">
               {profile?.name?.charAt(0).toUpperCase() ?? '?'}
             </div>
-            <span className="text-sm font-medium hidden sm:block">{profile?.name}</span>
+            <span className="text-sm font-medium hidden sm:block text-neutral-700">{profile?.name}</span>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="p-2 rounded-lg hover:bg-neutral-800 transition-colors"
-            title="Sair"
-          >
-            <LogOut className="w-5 h-5" />
+          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-neutral-100 transition-colors" title="Sair">
+            <LogOut className="w-5 h-5 text-neutral-500" />
           </button>
         </div>
       </header>
 
-      {/* Bottom nav (mobile) + side nav (desktop) */}
       <div className="flex flex-1">
         <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-neutral-200 p-3 space-y-1">
           {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-neutral-600 hover:bg-neutral-100'
-                }`
-              }
-            >
+            <NavLink key={item.to} to={item.to} end={item.end}
+              className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-ebd-50 text-ebd-700' : 'text-neutral-600 hover:bg-neutral-100'}`}>
               <item.icon className="w-5 h-5" />
               {item.label}
             </NavLink>
@@ -80,19 +57,10 @@ export default function StaffLayout() {
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 flex z-30">
         {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-                isActive ? 'text-primary-600' : 'text-neutral-400'
-              }`
-            }
-          >
+          <NavLink key={item.to} to={item.to} end={item.end}
+            className={({ isActive }) => `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${isActive ? 'text-ebd-700' : 'text-neutral-400'}`}>
             <item.icon className="w-5 h-5" />
             {item.label}
           </NavLink>

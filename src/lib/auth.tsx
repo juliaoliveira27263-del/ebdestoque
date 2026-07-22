@@ -21,36 +21,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
-      if (data.session) {
-        fetchProfile(data.session.user.id)
-      } else {
-        setLoading(false)
-      }
+      if (data.session) fetchProfile(data.session.user.id)
+      else setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, sess) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       setSession(sess)
-      if (sess) {
-        fetchProfile(sess.user.id)
-      } else {
-        setProfile(null)
-        setLoading(false)
-      }
+      if (sess) fetchProfile(sess.user.id)
+      else { setProfile(null); setLoading(false) }
     })
 
     return () => listener.subscription.unsubscribe()
   }, [])
 
   async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      console.error('Error fetching profile:', error)
-    }
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
     setProfile(data as Profile | null)
     setLoading(false)
   }

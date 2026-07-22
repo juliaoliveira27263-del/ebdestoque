@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeftRight, Loader2, Plus, Minus } from 'lucide-react'
+import { ArrowLeftRight, Loader2, Plus, Minus, X } from 'lucide-react'
 
 type Movement = {
-  id: string
-  type: string
-  quantity: number
-  reason: string | null
-  created_at: string
-  product_id: string
+  id: string; type: string; quantity: number; reason: string | null; created_at: string; product_id: string
   products: { name: string; sku: string } | null
   profiles: { name: string } | null
 }
@@ -25,11 +20,7 @@ export default function Movements() {
   async function fetchData() {
     setLoading(true)
     const [{ data: movs }, { data: prods }] = await Promise.all([
-      supabase.from('movements').select(`
-        id, type, quantity, reason, created_at, product_id,
-        products ( name, sku ),
-        profiles ( name )
-      `).order('created_at', { ascending: false }),
+      supabase.from('movements').select(`id, type, quantity, reason, created_at, product_id, products ( name, sku ), profiles ( name )`).order('created_at', { ascending: false }),
       supabase.from('products').select('id, name, sku').eq('active', true).order('name')
     ])
     setMovements(movs as unknown as Movement[] ?? [])
@@ -46,30 +37,21 @@ export default function Movements() {
       await supabase.from('products').update({ stock_quantity: newQty }).eq('id', product_id)
     }
     await supabase.from('movements').insert({ product_id, type, quantity, reason })
-    setShowModal(false)
-    setForm({ product_id: '', type: 'in', quantity: 1, reason: '' })
-    fetchData()
+    setShowModal(false); setForm({ product_id: '', type: 'in', quantity: 1, reason: '' }); fetchData()
   }
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary-600 animate-spin" /></div>
-  }
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-ebd-700 animate-spin" /></div>
 
   return (
     <div className="animate-fadeIn">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-neutral-900">Movimentações</h2>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-primary-600/20">
-          <Plus className="w-4 h-4" /> Nova Movimentação
-        </button>
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-ebd-700 hover:bg-ebd-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-ebd-700/20"><Plus className="w-4 h-4" /> Nova Movimentação</button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-card">
         {movements.length === 0 ? (
-          <div className="text-center py-12 text-neutral-400">
-            <ArrowLeftRight className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>Nenhuma movimentação registrada</p>
-          </div>
+          <div className="text-center py-12 text-neutral-400"><ArrowLeftRight className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>Nenhuma movimentação registrada</p></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -88,7 +70,7 @@ export default function Movements() {
                   <tr key={m.id} className="hover:bg-neutral-50">
                     <td className="px-4 py-3 text-sm text-neutral-900">{m.products?.name ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${m.type === 'in' ? 'bg-accent-100 text-accent-700' : 'bg-error-100 text-error-700'}`}>
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${m.type === 'in' ? 'bg-success-100 text-success-700' : 'bg-error-100 text-error-700'}`}>
                         {m.type === 'in' ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
                         {m.type === 'in' ? 'Entrada' : 'Saída'}
                       </span>
@@ -108,19 +90,18 @@ export default function Movements() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md animate-scaleIn" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-4">Nova Movimentação</h3>
+            <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold text-neutral-900">Nova Movimentação</h3><button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-neutral-100"><X className="w-5 h-5 text-neutral-400" /></button></div>
             <form onSubmit={handleSubmit} className="space-y-3">
-              <select required value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-primary-500 outline-none bg-white">
+              <select required value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none bg-white">
                 <option value="">Selecione o produto</option>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
               </select>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-primary-500 outline-none bg-white">
-                <option value="in">Entrada</option>
-                <option value="out">Saída</option>
+              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none bg-white">
+                <option value="in">Entrada</option><option value="out">Saída</option>
               </select>
-              <input type="number" min={1} required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })} placeholder="Quantidade" className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-primary-500 outline-none" />
-              <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Motivo" className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-primary-500 outline-none" />
-              <button type="submit" className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 rounded-lg transition-all">Registrar</button>
+              <input type="number" min={1} required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })} placeholder="Quantidade" className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none" />
+              <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Motivo" className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-ebd-700 outline-none" />
+              <button type="submit" className="w-full bg-ebd-700 hover:bg-ebd-800 text-white font-medium py-2.5 rounded-lg transition-all">Registrar</button>
             </form>
           </div>
         </div>

@@ -19,7 +19,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-3 border-ebd-700 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -35,8 +35,8 @@ export default function App() {
       {isAdmin ? (
         <Route path="/" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="industries" element={<Industries />} />
           <Route path="products" element={<Products />} />
+          <Route path="industries" element={<Industries />} />
           <Route path="requests" element={<Requests />} />
           <Route path="movements" element={<Movements />} />
           <Route path="users" element={<Users />} />

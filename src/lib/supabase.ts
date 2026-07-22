@@ -7,14 +7,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-  detectSessionInUrl: true
+    detectSessionInUrl: true
   }
 })
 
 export type Profile = {
   id: string
   name: string
-  role: 'admin' | 'promotor' | 'supervisor' | 'vendedor'
+  role: 'admin' | 'solicitante' | 'promotor' | 'supervisor' | 'vendedor'
   phone: string | null
   active: boolean
   avatar_url: string | null
@@ -50,7 +50,7 @@ export type Product = {
 export type Request = {
   id: string
   user_id: string
-  status: 'pending' | 'approved' | 'rejected' | 'completed'
+  status: string
   notes: string | null
   total_items: number
   created_at: string
