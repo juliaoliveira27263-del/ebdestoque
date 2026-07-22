@@ -17,11 +17,7 @@ import Profile from './pages/Profile';
 import Layout from './components/Layout';
 
 function LoadingScreen() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-950">
-      <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  return (<div className="min-h-screen flex items-center justify-center bg-dark-950"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -45,14 +41,7 @@ export default function App() {
       <Route path="/cadastro" element={<Cadastro />} />
       <Route path="/esqueci-senha" element={<EsqueciSenha />} />
       <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
+      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="produtos" element={<AdminRoute><Products /></AdminRoute>} />
         <Route path="solicitacoes" element={<Requests />} />
