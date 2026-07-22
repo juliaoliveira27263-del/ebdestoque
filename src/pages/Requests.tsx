@@ -121,7 +121,7 @@ export default function Requests() {
                         <button onClick={() => updateStatus(r.id, 'approved')} className="p-1.5 rounded-lg hover:bg-green-100 text-green-600">
                           <Check className="w-4 h-4" />
                         </button>
-                        <button onClick={() => updateStatus(r.id, 'rejected')} className="p-1.5 rounded-lg hover:bg-red-100 text-red-600">
+                        <button onClick={() => updateStatus(r.id, 'rejected')} className="p-1.5 rounded-lg hover:bg-red-100 text-primary-700">
                           <X className="w-4 h-4" />
                         </button>
                       </>

@@ -5,7 +5,7 @@ import { movementTypeLabels } from '../lib/types';
 import Badge from '../components/Badge';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const COLORS = ['#3b82f6', '#16a34a', '#d97706', '#dc2626', '#8b5cf6', '#0891b2'];
+const COLORS = ['#dc2626', '#b91c1c', '#991b1b', '#7f1d1d', '#ef4444', '#f87171'];
 
 export default function Reports() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -77,7 +77,7 @@ export default function Reports() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="quantidade" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="quantidade" fill="#dc2626" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -106,7 +106,7 @@ export default function Reports() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="quantidade" fill="#16a34a" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="quantidade" fill="#b91c1c" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -118,7 +118,7 @@ export default function Reports() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="movimentacoes" stroke="#3b82f6" strokeWidth={2} />
+              <Line type="monotone" dataKey="movimentacoes" stroke="#dc2626" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>

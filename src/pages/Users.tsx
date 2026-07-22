@@ -116,7 +116,7 @@ export default function Users() {
               <tr key={u.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm text-slate-900">
                   <div className="flex items-center gap-2">
-                    <UsersIcon className="w-4 h-4 text-slate-400" />
+                    <UsersIcon className="w-4 h-4 text-primary-500" />
                     {u.name}
                   </div>
                 </td>
@@ -133,7 +133,7 @@ export default function Users() {
                   <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleToggleActive(u)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-600">
+                  <button onClick={() => handleToggleActive(u)} className="p-1.5 rounded-lg hover:bg-red-100 text-primary-700">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>

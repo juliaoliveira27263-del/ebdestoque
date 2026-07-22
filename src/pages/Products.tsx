@@ -134,7 +134,7 @@ export default function Products() {
                       <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-100 text-red-600">
+                      <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-100 text-primary-700">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>

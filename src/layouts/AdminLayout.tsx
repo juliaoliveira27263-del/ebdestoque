@@ -23,10 +23,10 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      <aside className="w-64 bg-slate-900 text-white flex flex-col">
-        <div className="p-4 border-b border-slate-700">
+      <aside className="w-64 bg-primary-900 text-white flex flex-col">
+        <div className="p-4 border-b border-primary-800">
           <h1 className="text-lg font-bold">EBD Petrolina</h1>
-          <p className="text-xs text-slate-400">Controle de Estoque</p>
+          <p className="text-xs text-red-200">Controle de Estoque</p>
         </div>
         <nav className="flex-1 p-2 space-y-1">
           {navItems.map((item) => (
@@ -36,7 +36,7 @@ export default function AdminLayout() {
               end={item.to === '/'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-primary-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  isActive ? 'bg-primary-600 text-white' : 'text-red-100 hover:bg-primary-800'
                 }`
               }
             >
@@ -45,11 +45,11 @@ export default function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-700">
-          <div className="text-sm text-slate-300 mb-2">{profile?.name}</div>
+        <div className="p-4 border-t border-primary-800">
+          <div className="text-sm text-red-100 mb-2">{profile?.name}</div>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 text-sm text-slate-400 hover:text-white"
+            className="flex items-center gap-2 text-sm text-red-200 hover:text-white"
           >
             <LogOut className="w-4 h-4" />
             Sair

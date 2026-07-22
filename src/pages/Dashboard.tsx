@@ -35,10 +35,10 @@ export default function Dashboard() {
   const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
 
   const stats = [
-    { label: 'Total de Produtos', value: totalProducts, icon: Package, color: 'bg-blue-500' },
-    { label: 'Itens em Estoque', value: totalItems, icon: Package, color: 'bg-green-500' },
-    { label: 'Estoque Baixo', value: lowStock.length, icon: AlertTriangle, color: 'bg-amber-500' },
-    { label: 'Indústrias', value: totalIndustries, icon: Package, color: 'bg-purple-500' },
+    { label: 'Total de Produtos', value: totalProducts, icon: Package, color: 'bg-primary-600' },
+    { label: 'Itens em Estoque', value: totalItems, icon: Package, color: 'bg-primary-700' },
+    { label: 'Estoque Baixo', value: lowStock.length, icon: AlertTriangle, color: 'bg-primary-500' },
+    { label: 'Indústrias', value: totalIndustries, icon: Package, color: 'bg-primary-800' },
   ];
 
   return (
@@ -67,12 +67,12 @@ export default function Dashboard() {
             {lowStock.map((p) => {
               const indName = p.industries?.[0]?.name || 'N/A';
               return (
-                <div key={p.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                <div key={p.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                   <div>
                     <span className="font-medium text-slate-900">{p.name}</span>
                     <span className="text-sm text-slate-500 ml-2">{p.sku}</span>
                   </div>
-                  <div className="text-sm text-amber-700">
+                  <div className="text-sm text-primary-700">
                     {p.quantity} {p.unit} (mín: {p.min_quantity})
                   </div>
                 </div>
