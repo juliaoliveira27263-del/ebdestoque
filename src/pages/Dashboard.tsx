@@ -1,71 +1,153 @@
-import { useEffect, useState, useMemo } from 'react';
-import {
-  Package, Factory, Boxes, Clock, CheckCircle2, AlertTriangle, Users, TrendingUp, BarChart3,
-} from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { useEffect, useState } from 'react';
+import { Package, AlertTriangle, TrendingUp, FileText, Building2, Users } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
-import type { Product, Industry, Request, Profile } from '../lib/types';
+import { Product, Industry, Request as RequestType } from '../lib/types';
+import Badge from '../components/Badge';
 
-function StatCard({ icon: Icon, label, value, color }: { icon: typeof Package; label: string; value: string | number; color: string }) {
-  return (<div className="card p-4 flex items-center gap-3"><div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${color}`}><Icon className="w-5 h-5" /></div><div className="min-w-0"><p className="text-dark-400 text-xs font-medium truncate">{label}</p><p className="text-white text-xl font-bold">{value}</p></div></div>);
+interface Stats {
+  totalProducts: number;
+  lowStock: number;
+  totalIndustries: number;
+  pendingRequests: number;
+  totalUsers: number;
+  totalStockValue: number;
 }
 
 export default function Dashboard() {
-  const { isAdmin, profile } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [industries, setIndustries] = useState<Industry[]>([]);
-  const [myRequests, setMyRequests] = useState<Request[]>([]);
-  const [allRequests, setAllRequests] = useState<Request[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Stats>({
+    totalProducts: 0, lowStock: 0, totalIndustries: 0, pendingRequests: 0, totalUsers: 0, totalStockValue: 0,
+  });
+  const [recentRequests, setRecentRequests] = useState<RequestType[]>([]);
+  const [stockByIndustry, setStockByIndustry] = useState<{ name: string; quantidade: number }[]>([]);
+  const [stockStatus, setStockStatus] = useState<{ name: string; value: number; color: string }[]>([]);
 
   useEffect(() => {
-    (async () => {
-      const [p, i, mr, ar, pr] = await Promise.all([
-        supabase.from('products').select('*, industry:industries(*)'),
-        supabase.from('industries').select('*'),
-        supabase.from('requests').select('*, profile:profiles(*)').eq('user_id', profile?.id ?? ''),
-        supabase.from('requests').select('*, profile:profiles(*)'),
-        supabase.from('profiles').select('*'),
+    const fetchData = async () => {
+      const [{ count: productCount }, { count: industryCount }, { count: userCount }, { data: products }, { data: requests }] = await Promise.all([
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('industries').select('*', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('products').select('stock_quantity, min_stock, industry_id'),
+        supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(5),
       ]);
-      setProducts(p.data as Product[] ?? []); setIndustries(i.data as Industry[] ?? []); setMyRequests(mr.data as Request[] ?? []); setAllRequests(ar.data as Request[] ?? []); setProfiles(pr.data as Profile[] ?? []); setLoading(false);
-    })();
-  }, [profile?.id]);
 
-  const stats = useMemo(() => {
-    const displayRequests = isAdmin ? allRequests : myRequests;
-    return { totalProducts: products.length, totalIndustries: industries.length, totalStock: products.reduce((s, p) => s + p.stock_quantity, 0), lowStock: products.filter((p) => p.stock_quantity <= p.min_stock), pending: displayRequests.filter((r) => r.status === 'pending'), completed: displayRequests.filter((r) => r.status === 'completed'), totalUsers: profiles.length, displayRequests };
-  }, [products, industries, myRequests, allRequests, isAdmin, profiles]);
+      const productList = products as Product[] | null;
+      const lowStockCount = productList?.filter(p => p.stock_quantity <= p.min_stock).length ?? 0;
+      const pendingCount = (requests as RequestType[] | null)?.filter(r => r.status === 'pending').length ?? 0;
 
-  const stockByIndustry = useMemo(() => industries.map((ind) => ({ name: ind.name.trim(), estoque: products.filter((p) => p.industry_id === ind.id).reduce((s, p) => s + p.stock_quantity, 0) })), [products, industries]);
-  const requestsByPeriod = useMemo(() => { const displayRequests = isAdmin ? allRequests : myRequests; const now = new Date(); const days: Record<string, number> = {}; for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); days[d.toLocaleDateString('pt-BR', { weekday: 'short' })] = 0; } displayRequests.forEach((r) => { const key = new Date(r.created_at).toLocaleDateString('pt-BR', { weekday: 'short' }); if (key in days) days[key]++; }); return Object.entries(days).map(([name, solicitacoes]) => ({ name, solicitacoes })); }, [allRequests, myRequests, isAdmin]);
-  const topProducts = useMemo(() => { const displayRequests = isAdmin ? allRequests : myRequests; const counts: Record<string, { name: string; count: number }> = {}; displayRequests.forEach((r) => r.request_items?.forEach((item) => { const pname = item.product?.name ?? 'Desconhecido'; if (!counts[item.product_id]) counts[item.product_id] = { name: pname, count: 0 }; counts[item.product_id].count += item.quantity; })); return Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 5); }, [allRequests, myRequests, isAdmin]);
-  const topUsers = useMemo(() => { const counts: Record<string, { name: string; count: number; items: number }> = {}; allRequests.forEach((r) => { const uname = r.profile?.name ?? 'Desconhecido'; if (!counts[r.user_id]) counts[r.user_id] = { name: uname, count: 0, items: 0 }; counts[r.user_id].count++; counts[r.user_id].items += r.total_items; }); return Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 5); }, [allRequests]);
+      setStats({
+        totalProducts: productCount ?? 0,
+        lowStock: lowStockCount,
+        totalIndustries: industryCount ?? 0,
+        pendingRequests: pendingCount,
+        totalUsers: userCount ?? 0,
+        totalStockValue: productList?.reduce((sum, p) => sum + p.stock_quantity, 0) ?? 0,
+      });
+      setRecentRequests((requests as RequestType[] | null) ?? []);
 
-  if (loading) return (<div className="flex items-center justify-center h-full p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);
+      const { data: industries } = await supabase.from('industries').select('id, name');
+      const industryList = (industries as Industry[] | null) ?? [];
+      const byIndustry = industryList.map(ind => {
+        const total = productList?.filter(p => p.industry_id === ind.id).reduce((sum, p) => sum + p.stock_quantity, 0) ?? 0;
+        return { name: ind.name, quantidade: total };
+      }).filter(item => item.quantidade > 0);
+      setStockByIndustry(byIndustry);
+
+      const inStock = productList?.filter(p => p.stock_quantity > p.min_stock).length ?? 0;
+      const low = productList?.filter(p => p.stock_quantity > 0 && p.stock_quantity <= p.min_stock).length ?? 0;
+      const out = productList?.filter(p => p.stock_quantity === 0).length ?? 0;
+      setStockStatus([
+        { name: 'Em estoque', value: inStock, color: '#16a34a' },
+        { name: 'Estoque baixo', value: low, color: '#f59e0b' },
+        { name: 'Sem estoque', value: out, color: '#dc2626' },
+      ]);
+    };
+    fetchData();
+  }, []);
+
+  const cards = [
+    { label: 'Total de Produtos', value: stats.totalProducts, icon: Package, color: 'text-blue-400' },
+    { label: 'Estoque Baixo', value: stats.lowStock, icon: AlertTriangle, color: 'text-warning-500' },
+    { label: 'Indústrias', value: stats.totalIndustries, icon: Building2, color: 'text-purple-400' },
+    { label: 'Solicitações Pendentes', value: stats.pendingRequests, icon: FileText, color: 'text-primary' },
+    { label: 'Usuários', value: stats.totalUsers, icon: Users, color: 'text-green-400' },
+    { label: 'Itens em Estoque', value: stats.totalStockValue, icon: TrendingUp, color: 'text-cyan-400' },
+  ];
 
   return (
-    <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-6">
-      <div><h1 className="text-2xl font-bold text-white">Dashboard</h1><p className="text-dark-400 text-sm mt-1">Visão geral do sistema</p></div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Package} label="Total de Produtos" value={stats.totalProducts} color="bg-primary-600/15 text-primary-500" />
-        <StatCard icon={Factory} label="Indústrias" value={stats.totalIndustries} color="bg-blue-500/15 text-blue-400" />
-        <StatCard icon={Boxes} label="Estoque Total" value={stats.totalStock} color="bg-success-500/15 text-success-500" />
-        <StatCard icon={Clock} label="Solicitações Pendentes" value={stats.pending.length} color="bg-warning-500/15 text-warning-500" />
-        <StatCard icon={CheckCircle2} label="Concluídas" value={stats.completed.length} color="bg-success-500/15 text-success-500" />
-        <StatCard icon={AlertTriangle} label="Estoque Baixo" value={stats.lowStock.length} color="bg-error-500/15 text-error-500" />
-        {isAdmin && <StatCard icon={Users} label="Usuários" value={stats.totalUsers} color="bg-purple-500/15 text-purple-400" />}
-        <StatCard icon={TrendingUp} label="Total Solicitações" value={stats.displayRequests.length} color="bg-primary-600/15 text-primary-500" />
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <p className="text-dark-400 text-sm mt-1">Visão geral do sistema</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="card p-5"><div className="flex items-center gap-2 mb-4"><BarChart3 className="w-5 h-5 text-primary-500" /><h2 className="text-white font-semibold">Estoque por Indústria</h2></div><ResponsiveContainer width="100%" height={280}><BarChart data={stockByIndustry}><CartesianGrid strokeDasharray="3 3" stroke="#2d2e34" /><XAxis dataKey="name" stroke="#6d6e78" fontSize={11} angle={-15} textAnchor="end" height={60} /><YAxis stroke="#6d6e78" fontSize={11} /><Tooltip contentStyle={{ background: '#1e1f24', border: '1px solid #3d3e45', borderRadius: '8px', color: '#fff' }} cursor={{ fill: '#2d2e34' }} /><Bar dataKey="estoque" fill="#C00000" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div>
-        <div className="card p-5"><div className="flex items-center gap-2 mb-4"><TrendingUp className="w-5 h-5 text-primary-500" /><h2 className="text-white font-semibold">Solicitações (últimos 7 dias)</h2></div><ResponsiveContainer width="100%" height={280}><LineChart data={requestsByPeriod}><CartesianGrid strokeDasharray="3 3" stroke="#2d2e34" /><XAxis dataKey="name" stroke="#6d6e78" fontSize={11} /><YAxis stroke="#6d6e78" fontSize={11} allowDecimals={false} /><Tooltip contentStyle={{ background: '#1e1f24', border: '1px solid #3d3e45', borderRadius: '8px', color: '#fff' }} /><Line type="monotone" dataKey="solicitacoes" stroke="#C00000" strokeWidth={2} dot={{ fill: '#C00000', r: 4 }} /></LineChart></ResponsiveContainer></div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.label} className="bg-dark-900 border border-dark-800 rounded-xl p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-dark-400 text-sm">{card.label}</p>
+                  <p className="text-2xl font-bold text-white mt-1">{card.value}</p>
+                </div>
+                <Icon size={32} className={card.color} />
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <div className="card p-5"><div className="flex items-center gap-2 mb-4"><AlertTriangle className="w-5 h-5 text-warning-500" /><h2 className="text-white font-semibold">Produtos com Estoque Baixo</h2></div>{stats.lowStock.length === 0 ? <p className="text-dark-400 text-sm py-4 text-center">Nenhum produto com estoque baixo.</p> : <div className="space-y-2 max-h-64 overflow-y-auto">{stats.lowStock.map((p) => (<div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-dark-700/50"><div className="flex items-center gap-3 min-w-0">{p.image_url ? <img src={p.image_url} alt={p.name} className="w-10 h-10 rounded-lg object-cover shrink-0" /> : <div className="w-10 h-10 rounded-lg bg-dark-600 flex items-center justify-center shrink-0"><Package className="w-5 h-5 text-dark-400" /></div>}<div className="min-w-0"><p className="text-white text-sm font-medium truncate">{p.name}</p><p className="text-dark-400 text-xs">{p.industry?.name?.trim() ?? 'Sem indústria'}</p></div></div><span className="badge-error shrink-0">{p.stock_quantity} / {p.min_stock} {p.unit}</span></div>))}</div>}</div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="card p-5"><div className="flex items-center gap-2 mb-4"><Package className="w-5 h-5 text-primary-500" /><h2 className="text-white font-semibold">Produtos Mais Solicitados</h2></div>{topProducts.length === 0 ? <p className="text-dark-400 text-sm py-4 text-center">Sem dados ainda.</p> : <ResponsiveContainer width="100%" height={250}><BarChart data={topProducts} layout="vertical"><CartesianGrid strokeDasharray="3 3" stroke="#2d2e34" /><XAxis type="number" stroke="#6d6e78" fontSize={11} /><YAxis type="category" dataKey="name" stroke="#6d6e78" fontSize={10} width={120} tick={{ fill: '#9b9ca3' }} /><Tooltip contentStyle={{ background: '#1e1f24', border: '1px solid #3d3e45', borderRadius: '8px', color: '#fff' }} cursor={{ fill: '#2d2e34' }} /><Bar dataKey="count" fill="#C00000" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer>}</div>
-        {isAdmin && (<div className="card p-5"><div className="flex items-center gap-2 mb-4"><Users className="w-5 h-5 text-primary-500" /><h2 className="text-white font-semibold">Ranking de Usuários</h2></div>{topUsers.length === 0 ? <p className="text-dark-400 text-sm py-4 text-center">Sem dados ainda.</p> : <div className="space-y-2">{topUsers.map((u, i) => (<div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${i === 0 ? 'bg-warning-500 text-white' : i === 1 ? 'bg-dark-300 text-dark-900' : i === 2 ? 'bg-orange-700 text-white' : 'bg-dark-600 text-dark-200'}`}>{i + 1}</div><div className="flex-1 min-w-0"><p className="text-white text-sm font-medium truncate">{u.name}</p><p className="text-dark-400 text-xs">{u.count} solicitações · {u.items} itens</p></div></div>))}</div>}</div>)}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-dark-900 border border-dark-800 rounded-xl p-5">
+          <h3 className="text-white font-semibold mb-4">Estoque por Indústria</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stockByIndustry}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+              <XAxis dataKey="name" stroke="#71717a" fontSize={12} />
+              <YAxis stroke="#71717a" fontSize={12} />
+              <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }} />
+              <Bar dataKey="quantidade" fill="#C00000" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-dark-900 border border-dark-800 rounded-xl p-5">
+          <h3 className="text-white font-semibold mb-4">Status do Estoque</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie data={stockStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                {stockStatus.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Legend />
+              <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-dark-900 border border-dark-800 rounded-xl p-5">
+        <h3 className="text-white font-semibold mb-4">Solicitações Recentes</h3>
+        {recentRequests.length === 0 ? (
+          <p className="text-dark-400 text-sm text-center py-8">Nenhuma solicitação encontrada</p>
+        ) : (
+          <div className="space-y-2">
+            {recentRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between py-3 border-b border-dark-800 last:border-0">
+                <div>
+                  <p className="text-white text-sm font-medium">{req.total_items} item(s)</p>
+                  <p className="text-dark-400 text-xs">{new Date(req.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <Badge variant={req.status === 'pending' ? 'warning' : req.status === 'approved' ? 'success' : 'error'}>
+                  {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

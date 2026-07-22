@@ -1,36 +1,92 @@
 import { useEffect, useState } from 'react';
-import { Bell, CheckCheck, Trash2, BellOff } from 'lucide-react';
+import { Bell, Check, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { Notification } from '../lib/types';
 import { useAuth } from '../lib/auth';
-import type { Notification } from '../lib/types';
+import { toast } from 'sonner';
 
 export default function Notifications() {
-  const { profile, isAdmin } = useAuth();
+  const { profile } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchNotifications(); }, [profile?.id]);
-  const fetchNotifications = async () => { let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }); if (!isAdmin && profile?.id) query = query.or(`user_id.eq.${profile.id},user_id.is.null`); const { data } = await query; setNotifications(data as Notification[] ?? []); setLoading(false); };
-  const markAsRead = async (id: string) => { await supabase.from('notifications').update({ read: true }).eq('id', id); await fetchNotifications(); };
-  const markAllRead = async () => { for (const n of notifications.filter((n) => !n.read)) { await supabase.from('notifications').update({ read: true }).eq('id', n.id); } await fetchNotifications(); };
-  const deleteNotification = async (id: string) => { await supabase.from('notifications').delete().eq('id', id); await fetchNotifications(); };
+  const fetchNotifications = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setNotifications((data as Notification[] | null) ?? []);
+    setLoading(false);
+  };
 
-  if (loading) return (<div className="flex items-center justify-center h-full p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);
+  useEffect(() => { fetchNotifications(); }, []);
+
+  const handleMarkRead = async (id: string) => {
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!profile) return;
+    await supabase.from('notifications').update({ read: true }).eq('read', false);
+    toast.success('Todas as notificações marcadas como lidas');
+    fetchNotifications();
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from('notifications').delete().eq('id', id);
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   return (
-    <div className="p-4 lg:p-6 max-w-3xl mx-auto space-y-4">
-      <div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold text-white">Notificações</h1><p className="text-dark-400 text-sm mt-1">{notifications.filter((n) => !n.read).length} não lida(s)</p></div>{notifications.some((n) => !n.read) && <button onClick={markAllRead} className="btn-ghost text-sm"><CheckCheck className="w-4 h-4" />Marcar todas como lidas</button>}</div>
-      <div className="space-y-2">
-        {notifications.length === 0 ? (<div className="card p-8 text-center"><BellOff className="w-12 h-12 text-dark-500 mx-auto mb-3" /><p className="text-dark-400">Nenhuma notificação.</p></div>) : (
-          notifications.map((n) => (
-            <div key={n.id} className={`card p-4 flex items-start gap-3 ${!n.read ? 'border-primary-600/30 bg-primary-600/5' : ''}`}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${!n.read ? 'bg-primary-600/15' : 'bg-dark-700'}`}><Bell className={`w-5 h-5 ${!n.read ? 'text-primary-500' : 'text-dark-400'}`} /></div>
-              <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><p className="text-white text-sm font-medium">{n.title}</p>{!n.read && <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />}</div>{n.message && <p className="text-dark-300 text-sm mt-0.5">{n.message}</p>}<p className="text-dark-400 text-xs mt-1">{new Date(n.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p></div>
-              <div className="flex items-center gap-1 shrink-0">{!n.read && <button onClick={() => markAsRead(n.id)} className="p-2 rounded-lg text-dark-400 hover:text-success-500 hover:bg-dark-700 transition-colors" title="Marcar como lida"><CheckCheck className="w-4 h-4" /></button>}{isAdmin && <button onClick={() => deleteNotification(n.id)} className="p-2 rounded-lg text-dark-400 hover:text-error-500 hover:bg-dark-700 transition-colors" title="Excluir"><Trash2 className="w-4 h-4" /></button>}</div>
-            </div>
-          ))
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Notificações</h1>
+          <p className="text-dark-400 text-sm mt-1">Suas notificações</p>
+        </div>
+        {notifications.some(n => !n.read) && (
+          <button onClick={handleMarkAllRead} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-dark-800 text-white text-sm font-medium hover:bg-dark-700 transition-colors">
+            <Check size={16} /> Marcar todas como lidas
+          </button>
         )}
       </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-dark-400">Carregando...</div>
+      ) : notifications.length === 0 ? (
+        <div className="text-center py-12">
+          <Bell size={48} className="text-dark-600 mx-auto mb-4" />
+          <p className="text-dark-400">Nenhuma notificação</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {notifications.map(n => (
+            <div key={n.id} className={`bg-dark-900 border rounded-xl p-4 flex items-start gap-3 ${n.read ? 'border-dark-800' : 'border-primary/50'}`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${n.read ? 'bg-dark-800' : 'bg-primary/20'}`}>
+                <Bell size={18} className={n.read ? 'text-dark-400' : 'text-primary'} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${n.read ? 'text-dark-300' : 'text-white'}`}>{n.title}</p>
+                {n.message && <p className="text-dark-400 text-sm mt-0.5">{n.message}</p>}
+                <p className="text-dark-500 text-xs mt-1">{new Date(n.created_at).toLocaleString('pt-BR')}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {!n.read && (
+                  <button onClick={() => handleMarkRead(n.id)} className="p-1.5 rounded-lg hover:bg-dark-800 text-dark-400 hover:text-white transition-colors">
+                    <Check size={16} />
+                  </button>
+                )}
+                <button onClick={() => handleDelete(n.id)} className="p-1.5 rounded-lg hover:bg-dark-800 text-dark-400 hover:text-error-500 transition-colors">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

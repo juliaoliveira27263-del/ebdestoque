@@ -1,56 +1,88 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Package, Mail, AlertCircle, CheckCircle2, ArrowLeft, Send, Moon, Sun } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mail, Sun, Moon, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
+import { toast } from 'sonner';
 
 export default function EsqueciSenha() {
   const { resetPassword } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
   const isDark = theme === 'dark';
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(null); setSubmitting(true);
+    e.preventDefault();
+    setLoading(true);
     const { error } = await resetPassword(email);
-    if (error) { setError(error); setSubmitting(false); } else { setSuccess(true); setSubmitting(false); }
+    setLoading(false);
+    if (error) {
+      toast.error(error);
+    } else {
+      setSent(true);
+      toast.success('Email de recuperação enviado!');
+    }
   };
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${isDark ? 'bg-dark-950' : 'bg-gray-50'}`}>
-      <button onClick={toggleTheme} className={`absolute top-4 right-4 p-2 rounded-lg transition-colors ${isDark ? 'text-dark-300 hover:text-white hover:bg-dark-800' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>
-        {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      <button
+        onClick={toggleTheme}
+        className={`absolute top-4 right-4 p-2.5 rounded-xl transition-colors ${isDark ? 'bg-dark-800 text-dark-300 hover:bg-dark-700' : 'bg-white text-gray-600 hover:bg-gray-100 shadow-sm border border-gray-200'}`}
+      >
+        {isDark ? <Sun size={20} /> : <Moon size={20} />}
       </button>
-      <div className="w-full max-w-md animate-slide-up">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 mb-4 shadow-lg shadow-primary-600/30"><Package className="w-8 h-8 text-white" /></div>
-          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Esqueci minha senha</h1>
-          <p className={`mt-1 text-sm ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>Recuperação de senha por e-mail</p>
+
+      <div className={`w-full max-w-md p-8 rounded-2xl shadow-xl ${isDark ? 'bg-dark-900 border border-dark-800' : 'bg-white border border-gray-200'}`}>
+        <Link to="/login" className={`flex items-center gap-2 text-sm mb-6 ${isDark ? 'text-dark-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>
+          <ArrowLeft size={16} /> Voltar ao login
+        </Link>
+
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
+            <span className="text-white font-bold text-xl">EBD</span>
+          </div>
+          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Esqueci a Senha</h1>
+          <p className={`text-sm text-center mt-2 ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>
+            {sent ? 'Verifique seu email para redefinir a senha.' : 'Digite seu email para receber o link de recuperação.'}
+          </p>
         </div>
-        <div className={`card p-6 ${isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200 shadow-lg'}`}>
-          {success ? (
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success-500/15 mb-2"><CheckCircle2 className="w-8 h-8 text-success-500" /></div>
-              <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>E-mail enviado!</p>
-              <p className={`text-sm ${isDark ? 'text-dark-400' : 'text-gray-500'}`}>Se uma conta existir com este e-mail, você receberá um link para redefinir sua senha. Verifique sua caixa de entrada e spam.</p>
-              <button onClick={() => navigate('/login')} className="btn-primary w-full">Voltar para o login</button>
+
+        {!sent ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-dark-200' : 'text-gray-700'}`}>Email</label>
+              <div className="relative">
+                <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-dark-400' : 'text-gray-400'}`} size={18} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition-colors ${isDark ? 'bg-dark-800 border-dark-700 text-white focus:border-primary' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary'}`}
+                  placeholder="seu@email.com"
+                />
+              </div>
             </div>
-          ) : (
-            <>
-              <p className={`text-sm mb-4 ${isDark ? 'text-dark-300' : 'text-gray-600'}`}>Informe seu e-mail e enviaremos um link para você redefinir sua senha.</p>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div><label className="label">E-mail</label><div className="relative"><Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? 'text-dark-400' : 'text-gray-400'}`} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input pl-10" placeholder="seu@email.com" required autoComplete="email" /></div></div>
-                {error && <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span></div>}
-                <button type="submit" disabled={submitting} className="btn-primary w-full">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Enviar código de recuperação <Send className="w-4 h-4" /></>}</button>
-              </form>
-              <div className="mt-6 text-center"><Link to="/login" className={`inline-flex items-center gap-1 text-sm transition-colors ${isDark ? 'text-dark-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}><ArrowLeft className="w-4 h-4" />Voltar para o login</Link></div>
-            </>
-          )}
-        </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Enviando...' : 'Enviar link de recuperação'}
+            </button>
+          </form>
+        ) : (
+          <div className="text-center">
+            <Link to="/login" className="inline-block py-2.5 px-6 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700 transition-colors">
+              Voltar ao login
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

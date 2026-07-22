@@ -1,59 +1,222 @@
-import { useEffect, useState, useMemo } from 'react';
-import { ArrowLeftRight, Plus, Search, AlertCircle, ArrowUp, ArrowDown, Sliders } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, Sliders, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
-import type { Movement, Product } from '../lib/types';
-import Modal from '../components/Modal';
+import { Movement, Product, Profile } from '../lib/types';
+import Badge from '../components/Badge';
+import { exportToCSV } from '../lib/csv';
+import { toast } from 'sonner';
 
-const typeConfig = {
-  in: { label: 'Entrada', icon: ArrowDown, color: 'text-success-500', bg: 'bg-success-500/15' },
-  out: { label: 'Saída', icon: ArrowUp, color: 'text-error-500', bg: 'bg-error-500/15' },
-  adjustment: { label: 'Ajuste', icon: Sliders, color: 'text-warning-500', bg: 'bg-warning-500/15' },
-};
+interface MovementWithDetails extends Movement {
+  product_name?: string;
+  user_name?: string;
+}
 
 export default function Movements() {
-  const { profile } = useAuth();
-  const [movements, setMovements] = useState<Movement[]>([]);
+  const [movements, setMovements] = useState<MovementWithDetails[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [form, setForm] = useState({ product_id: '', type: 'in', quantity: 0, reason: '' });
   const [modalOpen, setModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ product_id: '', type: 'in' as 'in' | 'out' | 'adjustment', quantity: '1', reason: '' });
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [{ data: movementsData }, { data: productsData }] = await Promise.all([
+      supabase.from('movements').select('*').order('created_at', { ascending: false }).limit(100),
+      supabase.from('products').select('*').eq('active', true).order('name'),
+    ]);
+    const moveList = (movementsData as Movement[] | null) ?? [];
+    setProducts((productsData as Product[] | null) ?? []);
+
+    const productIds = [...new Set(moveList.map(m => m.product_id))];
+    const userIds = [...new Set(moveList.map(m => m.user_id).filter(Boolean) as string[])];
+
+    const [{ data: prods }, { data: profiles }] = await Promise.all([
+      supabase.from('products').select('id, name').in('id', productIds),
+      userIds.length > 0 ? supabase.from('profiles').select('id, name').in('id', userIds) : Promise.resolve({ data: null }),
+    ]);
+
+    const productMap = new Map<string, string>();
+    (prods as Product[] | null)?.forEach(p => productMap.set(p.id, p.name));
+    const profileMap = new Map<string, string>();
+    (profiles as Profile[] | null)?.forEach(p => profileMap.set(p.id, p.name));
+
+    const enriched = moveList.map(m => ({
+      ...m,
+      product_name: productMap.get(m.product_id) ?? 'Desconhecido',
+      user_name: m.user_id ? (profileMap.get(m.user_id) ?? 'Desconhecido') : undefined,
+    }));
+    setMovements(enriched);
+    setLoading(false);
+  };
 
   useEffect(() => { fetchData(); }, []);
-  const fetchData = async () => { const [m, p] = await Promise.all([supabase.from('movements').select('*, product:products(*), profile:profiles(*)').order('created_at', { ascending: false }), supabase.from('products').select('*, industry:industries(*)').order('name')]); setMovements(m.data as Movement[] ?? []); setProducts(p.data as Product[] ?? []); setLoading(false); };
-  const filteredMovements = useMemo(() => { if (!search) return movements; const q = search.toLowerCase(); return movements.filter((m) => m.product?.name?.toLowerCase().includes(q) || m.profile?.name?.toLowerCase().includes(q) || m.reason?.toLowerCase().includes(q)); }, [movements, search]);
-  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setSubmitting(true); setError(null); const product = products.find((p) => p.id === form.product_id); if (!product) { setError('Selecione um produto'); setSubmitting(false); return; } const qty = parseInt(form.quantity); if (qty <= 0) { setError('Quantidade deve ser maior que zero'); setSubmitting(false); return; } try { const { error: movError } = await supabase.from('movements').insert({ product_id: form.product_id, type: form.type, quantity: qty, reason: form.reason || null, user_id: profile?.id ?? null }); if (movError) throw movError; let newStock = product.stock_quantity; if (form.type === 'in') newStock += qty; else if (form.type === 'out') newStock -= qty; else newStock = qty; const { error: prodError } = await supabase.from('products').update({ stock_quantity: Math.max(0, newStock) }).eq('id', form.product_id); if (prodError) throw prodError; setModalOpen(false); setForm({ product_id: '', type: 'in', quantity: '1', reason: '' }); await fetchData(); } catch (err: any) { setError(err.message); } finally { setSubmitting(false); } };
 
-  if (loading) return (<div className="flex items-center justify-center h-full p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.product_id || form.quantity <= 0) return;
+    const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', form.product_id).single();
+    const currentStock = (product as Product | null)?.stock_quantity ?? 0;
+    let newStock = currentStock;
+    if (form.type === 'in') newStock = currentStock + Number(form.quantity);
+    else if (form.type === 'out') {
+      newStock = currentStock - Number(form.quantity);
+      if (newStock < 0) { toast.error('Estoque insuficiente.'); return; }
+    } else newStock = Number(form.quantity);
+
+    await supabase.from('products').update({ stock_quantity: newStock }).eq('id', form.product_id);
+    await supabase.from('movements').insert({
+      product_id: form.product_id, type: form.type, quantity: Number(form.quantity),
+      reason: form.reason || null,
+    });
+    toast.success('Movimentação registrada!');
+    setModalOpen(false);
+    setForm({ product_id: '', type: 'in', quantity: 0, reason: '' });
+    fetchData();
+  };
+
+  const filtered = movements.filter(m => {
+    const matchSearch = m.product_name?.toLowerCase().includes(search.toLowerCase()) ?? false;
+    const matchType = typeFilter === 'all' || m.type === typeFilter;
+    return matchSearch && matchType;
+  });
+
+  const handleExport = () => {
+    exportToCSV('movimentacoes.csv', ['Produto', 'Tipo', 'Quantidade', 'Motivo', 'Usuário', 'Data'],
+      filtered.map(m => [m.product_name ?? '', m.type, m.quantity, m.reason ?? '', m.user_name ?? '', new Date(m.created_at).toLocaleDateString('pt-BR')]));
+  };
+
+  const typeIcon = (type: string) => {
+    if (type === 'in') return <ArrowDown size={16} className="text-success-500" />;
+    if (type === 'out') return <ArrowUp size={16} className="text-error-500" />;
+    return <Sliders size={16} className="text-blue-400" />;
+  };
+
+  const typeLabel = (type: string) => type === 'in' ? 'Entrada' : type === 'out' ? 'Saída' : 'Ajuste';
 
   return (
-    <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><h1 className="text-2xl font-bold text-white">Movimentações</h1><p className="text-dark-400 text-sm mt-1">{movements.length} movimentação(ões)</p></div><button onClick={() => { setForm({ product_id: '', type: 'in', quantity: '1', reason: '' }); setError(null); setModalOpen(true); }} className="btn-primary"><Plus className="w-5 h-5" />Nova Movimentação</button></div>
-      <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" /><input type="text" value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-10" placeholder="Buscar movimentações..." /></div>
-      <div className="space-y-2">
-        {filteredMovements.length === 0 ? (<div className="card p-8 text-center"><ArrowLeftRight className="w-12 h-12 text-dark-500 mx-auto mb-3" /><p className="text-dark-400">Nenhuma movimentação encontrada.</p></div>) : (
-          filteredMovements.map((mov) => { const TypeIcon = typeConfig[mov.type].icon; return (
-            <div key={mov.id} className="card p-3 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${typeConfig[mov.type].bg}`}><TypeIcon className={`w-5 h-5 ${typeConfig[mov.type].color}`} /></div>
-              <div className="flex-1 min-w-0"><p className="text-white text-sm font-medium truncate">{mov.product?.name ?? 'Produto'}</p><div className="flex items-center gap-2 text-xs text-dark-400 mt-0.5"><span className={typeConfig[mov.type].color}>{typeConfig[mov.type].label}</span>{mov.profile && <span>· {mov.profile.name}</span>}<span>· {new Date(mov.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>{mov.reason && <p className="text-dark-400 text-xs mt-1 truncate">{mov.reason}</p>}</div>
-              <div className="text-right shrink-0"><span className={`text-lg font-bold ${typeConfig[mov.type].color}`}>{mov.type === 'in' ? '+' : mov.type === 'out' ? '−' : '='}{mov.quantity}</span><p className="text-dark-400 text-xs">{mov.product?.unit ?? 'un'}</p></div>
-            </div>
-          ); })
-        )}
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Movimentações</h1>
+          <p className="text-dark-400 text-sm mt-1">Histórico de entradas e saídas</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleExport} className="px-4 py-2 rounded-lg bg-dark-800 text-white text-sm font-medium hover:bg-dark-700 transition-colors">
+            Exportar CSV
+          </button>
+          <button onClick={() => setModalOpen(true)} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-700 transition-colors">
+            Nova Movimentação
+          </button>
+        </div>
       </div>
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova Movimentação" size="md">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div><label className="label">Produto *</label><select value={form.product_id} onChange={(e) => setForm((p) => ({ ...p, product_id: e.target.value }))} className="input" required><option value="">Selecione...</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name} (Estoque: {p.stock_quantity} {p.unit})</option>)}</select></div>
-          <div><label className="label">Tipo *</label><select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as any }))} className="input" required><option value="in">Entrada</option><option value="out">Saída</option><option value="adjustment">Ajuste de Estoque</option></select></div>
-          <div><label className="label">{form.type === 'adjustment' ? 'Nova Quantidade *' : 'Quantidade *'}</label><input type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} className="input" required min="1" /></div>
-          <div><label className="label">Motivo / Observação</label><textarea value={form.reason} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))} className="input min-h-[60px] resize-y" rows={2} /></div>
-          {error && <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span></div>}
-          <div className="flex gap-3 pt-2"><button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Registrar'}</button><button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button></div>
-        </form>
-      </Modal>
+
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={18} />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por produto..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-dark-900 border border-dark-800 text-white outline-none focus:border-primary" />
+        </div>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
+          className="px-4 py-2.5 rounded-lg bg-dark-900 border border-dark-800 text-white outline-none focus:border-primary">
+          <option value="all">Todos</option>
+          <option value="in">Entradas</option>
+          <option value="out">Saídas</option>
+          <option value="adjustment">Ajustes</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-dark-400">Carregando...</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <Sliders size={48} className="text-dark-600 mx-auto mb-4" />
+          <p className="text-dark-400">Nenhuma movimentação encontrada</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto bg-dark-900 border border-dark-800 rounded-xl">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-dark-800">
+                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Produto</th>
+                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Tipo</th>
+                <th className="text-right p-4 text-dark-300 text-sm font-semibold">Qtd</th>
+                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Motivo</th>
+                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Usuário</th>
+                <th className="text-left p-4 text-dark-300 text-sm font-semibold">Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((m) => (
+                <tr key={m.id} className="border-b border-dark-800 last:border-0 hover:bg-dark-800/50">
+                  <td className="p-4 text-white text-sm">{m.product_name}</td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      {typeIcon(m.type)}
+                      <Badge variant={m.type === 'in' ? 'success' : m.type === 'out' ? 'error' : 'info'}>
+                        {typeLabel(m.type)}
+                      </Badge>
+                    </div>
+                  </td>
+                  <td className="p-4 text-right text-white text-sm font-medium">{m.quantity}</td>
+                  <td className="p-4 text-dark-300 text-sm">{m.reason ?? '-'}</td>
+                  <td className="p-4 text-dark-300 text-sm">{m.user_name ?? '-'}</td>
+                  <td className="p-4 text-dark-300 text-sm">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
+          <div className="relative w-full max-w-md bg-dark-900 rounded-2xl shadow-2xl border border-dark-800 animate-scale-in">
+            <div className="p-5 border-b border-dark-800">
+              <h2 className="text-lg font-bold text-white">Nova Movimentação</h2>
+            </div>
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-1.5">Produto *</label>
+                <select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} required
+                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary">
+                  <option value="">Selecione...</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name} (Estoque: {p.stock_quantity})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-1.5">Tipo *</label>
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary">
+                  <option value="in">Entrada</option>
+                  <option value="out">Saída</option>
+                  <option value="adjustment">Ajuste</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-1.5">Quantidade *</label>
+                <input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} min={1} required
+                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-200 mb-1.5">Motivo</label>
+                <input type="text" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg bg-dark-800 border border-dark-700 text-white outline-none focus:border-primary" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-2.5 rounded-lg bg-dark-800 text-white font-medium hover:bg-dark-700 transition-colors">
+                  Cancelar
+                </button>
+                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary-700 transition-colors">
+                  Registrar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

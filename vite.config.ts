@@ -7,49 +7,65 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Controle de Estoque',
-        short_name: 'Estoque',
-        description: 'Sistema de controle de estoque e solicitações',
+        name: 'EBD Petrolina - Controle de Estoque',
+        short_name: 'EBD Estoque',
+        description: 'Sistema de controle de estoque EBD Petrolina',
         theme_color: '#C00000',
-        background_color: '#0f0f0f',
+        background_color: '#0a0a0a',
         display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
         icons: [
-          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
         ],
       },
-      workbench: {
+      workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'product-images',
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheName: 'supabase-storage',
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
             },
           },
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
             },
           },
         ],
       },
     }),
   ],
-  server: { host: true, port: 5173 },
-  build: { outDir: 'dist', sourcemap: false },
+  build: {
+    chunkSizeWarningLimit: 1000,
+  rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'ui-vendor': ['lucide-react', 'recharts', 'sonner', '@tanstack/react-query'],
+        },
+      },
+    },
+  },
 });

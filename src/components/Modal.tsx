@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -6,30 +6,35 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: string;
 }
 
-export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+export default function Modal({ open, onClose, title, children, maxWidth = 'max-w-md' }: ModalProps) {
   useEffect(() => {
-    if (open) { document.body.style.overflow = 'hidden'; } else { document.body.style.overflow = ''; }
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
   if (!open) return null;
 
-  const sizeClasses = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className={`relative rounded-t-2xl sm:rounded-xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col animate-slide-up card`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-inherit shrink-0">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors opacity-60 hover:opacity-100">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative w-full ${maxWidth} bg-white dark:bg-dark-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-dark-700 animate-scale-in max-h-[90vh] overflow-y-auto`}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-dark-700">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-dark-50">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 text-gray-500 dark:text-dark-300 transition-colors"
+          >
+            <X size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto p-5">{children}</div>
+        <div className="p-5">{children}</div>
       </div>
     </div>
   );

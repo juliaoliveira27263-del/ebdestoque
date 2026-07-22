@@ -1,21 +1,20 @@
-export type UserRole = 'admin' | 'supervisor' | 'vendedor' | 'promotor';
+export type UserRole = 'admin' | 'promotor' | 'supervisor' | 'vendedor';
 
 export interface Profile {
   id: string;
   name: string;
   role: UserRole;
   phone: string | null;
-  city: string | null;
-  avatar_url: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
+  avatar_url: string | null;
+  city: string | null;
 }
 
 export interface Industry {
   id: string;
   name: string;
-  logo_url: string | null;
   cnpj: string | null;
   contact_name: string | null;
   contact_email: string | null;
@@ -24,6 +23,7 @@ export interface Industry {
   active: boolean;
   created_at: string;
   updated_at: string;
+  logo_url: string | null;
 }
 
 export interface Category {
@@ -48,20 +48,16 @@ export interface Product {
   active: boolean;
   created_at: string;
   updated_at: string;
-  industry?: Industry | null;
-  category?: Category | null;
 }
 
 export interface Request {
   id: string;
   user_id: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  status: 'pending' | 'approved' | 'rejected';
   notes: string | null;
   total_items: number;
   created_at: string;
   updated_at: string;
-  profile?: Profile | null;
-  request_items?: RequestItem[];
 }
 
 export interface RequestItem {
@@ -71,8 +67,6 @@ export interface RequestItem {
   quantity: number;
   industry_id: string | null;
   created_at: string;
-  product?: Product | null;
-  industry?: Industry | null;
 }
 
 export interface Movement {
@@ -84,8 +78,6 @@ export interface Movement {
   user_id: string | null;
   request_id: string | null;
   created_at: string;
-  product?: Product | null;
-  profile?: Profile | null;
 }
 
 export interface Notification {
@@ -98,3 +90,10 @@ export interface Notification {
   related_id: string | null;
   created_at: string;
 }
+
+export const roleLabels: Record<UserRole, string> = {
+  admin: 'Administrador',
+  promotor: 'Promotor',
+  supervisor: 'Supervisor',
+  vendedor: 'Vendedor',
+};
