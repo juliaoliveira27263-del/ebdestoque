@@ -21,8 +21,7 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -31,21 +30,16 @@ Deno.serve(async (req: Request) => {
     );
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { data: profile, error: profileError } = await supabaseClient
-      .from("profiles")
-      .select("role, active")
-      .eq("id", user.id)
-      .maybeSingle();
+      .from("profiles").select("role, active").eq("id", user.id).maybeSingle();
 
     if (profileError || !profile || profile.role !== "admin" || !profile.active) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -54,8 +48,7 @@ Deno.serve(async (req: Request) => {
 
     if (!email || !password || !name) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -65,31 +58,23 @@ Deno.serve(async (req: Request) => {
     );
 
     const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
+      email, password, email_confirm: true,
     });
 
     if (createError || !authData.user) {
-      return new Response(
-        JSON.stringify({ error: createError?.message ?? "Failed to create user" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: createError?.message ?? "Failed to create user" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { error: profileInsertError } = await adminClient.from("profiles").insert({
-      id: authData.user.id,
-      name,
-      role: role || "vendedor",
-      phone: phone || null,
-      active: active !== false,
+      id: authData.user.id, name, role: role || "vendedor", phone: phone || null, active: active !== false,
     });
 
     if (profileInsertError) {
       await adminClient.auth.admin.deleteUser(authData.user.id);
       return new Response(JSON.stringify({ error: profileInsertError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -98,8 +83,7 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

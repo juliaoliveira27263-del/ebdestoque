@@ -63,15 +63,12 @@ export default function Users() {
         <div><h1 className="text-2xl font-bold text-white">Usuários</h1><p className="text-dark-400 text-sm mt-1">{profiles.length} usuário(s) cadastrado(s)</p></div>
         <button onClick={openCreate} className="btn-primary"><Plus className="w-5 h-5" />Novo Usuário</button>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {profiles.map((p) => (
           <div key={p.id} className="card p-4">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-primary-600/15 flex items-center justify-center shrink-0">
-                  <span className="text-primary-500 font-bold text-sm">{p.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
-                </div>
+                <div className="w-10 h-10 rounded-full bg-primary-600/15 flex items-center justify-center shrink-0"><span className="text-primary-500 font-bold text-sm">{p.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}</span></div>
                 <div className="min-w-0"><p className="text-white font-semibold truncate">{p.name}</p>{p.phone && <p className="text-dark-400 text-xs">{p.phone}</p>}</div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -86,7 +83,6 @@ export default function Users() {
           </div>
         ))}
       </div>
-
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Usuário' : 'Novo Usuário'} size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div><label className="label">Nome *</label><input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="input" required /></div>
@@ -95,13 +91,9 @@ export default function Users() {
           <div><label className="label">Telefone</label><input type="text" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className="input" /></div>
           <div><label className="label">Status</label><select value={form.active ? 'true' : 'false'} onChange={(e) => setForm((p) => ({ ...p, active: e.target.value === 'true' }))} className="input"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
           {error && <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span></div>}
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : editing ? 'Salvar' : 'Criar'}</button>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
-          </div>
+          <div className="flex gap-3 pt-2"><button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : editing ? 'Salvar' : 'Criar'}</button><button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button></div>
         </form>
       </Modal>
-
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Excluir Usuário" size="sm">
         <p className="text-dark-300 mb-4">Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.</p>
         {error && <p className="text-error-500 text-sm mb-3">{error}</p>}

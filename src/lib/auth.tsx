@@ -34,10 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('id', uid)
       .maybeSingle();
-    if (error) {
-      console.error('Error fetching profile:', error);
-      return;
-    }
+    if (error) { console.error('Error fetching profile:', error); return; }
     setProfile(data as Profile | null);
   }, []);
 
@@ -47,9 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      } else { setLoading(false); }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -57,23 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         (async () => { await fetchProfile(session.user.id); })();
-      } else {
-        setProfile(null);
-      }
+      } else { setProfile(null); }
     });
 
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
     if (error) return { error: error.message };
     if (!data.user) return { error: 'Falha ao criar conta' };
-
     await fetchProfile(data.user.id);
     return { error: null };
   };
@@ -87,14 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setProfile(null);
-    setSession(null);
-    setUser(null);
+    setProfile(null); setSession(null); setUser(null);
   };
 
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
-  };
+  const refreshProfile = async () => { if (user) await fetchProfile(user.id); };
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {

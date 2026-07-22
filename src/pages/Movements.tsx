@@ -12,7 +12,7 @@ const typeConfig = {
 };
 
 export default function Movements() {
-  const { isAdmin, profile } = useAuth();
+  const { profile } = useAuth();
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,9 +29,7 @@ export default function Movements() {
       supabase.from('movements').select('*, product:products(*), profile:profiles(*)').order('created_at', { ascending: false }),
       supabase.from('products').select('*, industry:industries(*)').order('name'),
     ]);
-    setMovements(m.data as Movement[] ?? []);
-    setProducts(p.data as Product[] ?? []);
-    setLoading(false);
+    setMovements(m.data as Movement[] ?? []); setProducts(p.data as Product[] ?? []); setLoading(false);
   };
 
   const filteredMovements = useMemo(() => {
@@ -50,9 +48,7 @@ export default function Movements() {
       const { error: movError } = await supabase.from('movements').insert({ product_id: form.product_id, type: form.type, quantity: qty, reason: form.reason || null, user_id: profile?.id ?? null });
       if (movError) throw movError;
       let newStock = product.stock_quantity;
-      if (form.type === 'in') newStock += qty;
-      else if (form.type === 'out') newStock -= qty;
-      else newStock = qty;
+      if (form.type === 'in') newStock += qty; else if (form.type === 'out') newStock -= qty; else newStock = qty;
       const { error: prodError } = await supabase.from('products').update({ stock_quantity: Math.max(0, newStock) }).eq('id', form.product_id);
       if (prodError) throw prodError;
       setModalOpen(false); setForm({ product_id: '', type: 'in', quantity: '1', reason: '' }); await fetchData();
@@ -65,11 +61,9 @@ export default function Movements() {
     <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div><h1 className="text-2xl font-bold text-white">Movimentações</h1><p className="text-dark-400 text-sm mt-1">{movements.length} movimentação(ões)</p></div>
-        {isAdmin && <button onClick={() => { setForm({ product_id: '', type: 'in', quantity: '1', reason: '' }); setError(null); setModalOpen(true); }} className="btn-primary"><Plus className="w-5 h-5" />Nova Movimentação</button>}
+        <button onClick={() => { setForm({ product_id: '', type: 'in', quantity: '1', reason: '' }); setError(null); setModalOpen(true); }} className="btn-primary"><Plus className="w-5 h-5" />Nova Movimentação</button>
       </div>
-
       <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" /><input type="text" value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-10" placeholder="Buscar movimentações..." /></div>
-
       <div className="space-y-2">
         {filteredMovements.length === 0 ? (
           <div className="card p-8 text-center"><ArrowLeftRight className="w-12 h-12 text-dark-500 mx-auto mb-3" /><p className="text-dark-400">Nenhuma movimentação encontrada.</p></div>
@@ -97,7 +91,6 @@ export default function Movements() {
           })
         )}
       </div>
-
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova Movimentação" size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div><label className="label">Produto *</label><select value={form.product_id} onChange={(e) => setForm((p) => ({ ...p, product_id: e.target.value }))} className="input" required><option value="">Selecione...</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name} (Estoque: {p.stock_quantity} {p.unit})</option>)}</select></div>
@@ -105,10 +98,7 @@ export default function Movements() {
           <div><label className="label">{form.type === 'adjustment' ? 'Nova Quantidade *' : 'Quantidade *'}</label><input type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} className="input" required min="1" /></div>
           <div><label className="label">Motivo / Observação</label><textarea value={form.reason} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))} className="input min-h-[60px] resize-y" rows={2} /></div>
           {error && <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span></div>}
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Registrar'}</button>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
-          </div>
+          <div className="flex gap-3 pt-2"><button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Registrar'}</button><button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button></div>
         </form>
       </Modal>
     </div>

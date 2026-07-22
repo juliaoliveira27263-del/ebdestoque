@@ -70,7 +70,7 @@ export default function Requests() {
 
   const cartCount = Object.values(cart).reduce((s, q) => s + q, 0);
 
-  const openCreate = () => { setCart({}); setNotes(''); setError(null); setExpandedIndustry(null); setModalOpen(true); };
+  const openCreate = () => { setCart({}); setNotes(''); setError(null); setExpandedIndustry(Object.keys(industryNames)[0] ?? null); setModalOpen(true); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,7 +181,8 @@ export default function Requests() {
               </div>
             </div>
           )}
-          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+          <p className="text-dark-300 text-sm">Selecione os produtos organizados por indústria:</p>
+          <div className="space-y-2 max-h-[45vh] overflow-y-auto">
             {Object.entries(industryNames).map(([indId, indName]) => {
               const indProducts = productsByIndustry[indId] ?? [];
               const isExp = expandedIndustry === indId;

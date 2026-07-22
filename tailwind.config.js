@@ -18,9 +18,7 @@ export default {
         warning: { 500: '#f59e0b', 600: '#d97706' },
         error: { 500: '#ef4444', 600: '#dc2626' },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-      },
+      fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',

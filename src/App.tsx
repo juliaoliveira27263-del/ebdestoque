@@ -16,29 +16,25 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Layout from './components/Layout';
 
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-dark-950">
+      <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-950">
-        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-950">
-        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (loading) return <LoadingScreen />;
+  if (!isAdmin) return <Navigate to="/solicitacoes" replace />;
   return <>{children}</>;
 }
 
@@ -58,12 +54,12 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="produtos" element={<Products />} />
+        <Route path="produtos" element={<AdminRoute><Products /></AdminRoute>} />
         <Route path="solicitacoes" element={<Requests />} />
-        <Route path="movimentacoes" element={<Movements />} />
+        <Route path="movimentacoes" element={<AdminRoute><Movements /></AdminRoute>} />
         <Route path="industrias" element={<AdminRoute><Industries /></AdminRoute>} />
-        <Route path="relatorios" element={<Reports />} />
-        <Route path="notificacoes" element={<Notifications />} />
+        <Route path="relatorios" element={<AdminRoute><Reports /></AdminRoute>} />
+        <Route path="notificacoes" element={<AdminRoute><Notifications /></AdminRoute>} />
         <Route path="usuarios" element={<AdminRoute><Users /></AdminRoute>} />
         <Route path="configuracoes" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="perfil" element={<Profile />} />

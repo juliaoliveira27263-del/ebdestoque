@@ -15,13 +15,13 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/produtos', label: 'Produtos', icon: Package },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
+  { to: '/produtos', label: 'Produtos', icon: Package, adminOnly: true },
   { to: '/solicitacoes', label: 'Solicitações', icon: ClipboardList },
-  { to: '/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight },
+  { to: '/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, adminOnly: true },
   { to: '/industrias', label: 'Indústrias', icon: Factory, adminOnly: true },
-  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
-  { to: '/notificacoes', label: 'Notificações', icon: Bell },
+  { to: '/relatorios', label: 'Relatórios', icon: BarChart3, adminOnly: true },
+  { to: '/notificacoes', label: 'Notificações', icon: Bell, adminOnly: true },
   { to: '/usuarios', label: 'Usuários', icon: Users, adminOnly: true },
   { to: '/configuracoes', label: 'Configurações', icon: Settings, adminOnly: true },
 ];
@@ -41,13 +41,14 @@ export default function Layout() {
 
   useEffect(() => {
     if (!profile) return;
+    if (!isAdmin) return;
     const channel = supabase
       .channel('notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetchUnread())
       .subscribe();
     fetchUnread();
     return () => { supabase.removeChannel(channel); };
-  }, [profile]);
+  }, [profile, isAdmin]);
 
   const fetchUnread = async () => {
     const { count } = await supabase
@@ -149,14 +150,7 @@ export default function Layout() {
             </div>
             <span className="text-white font-semibold text-sm">Controle de Estoque</span>
           </div>
-          {unreadCount > 0 && (
-            <NavLink to="/notificacoes" className="relative">
-              <Bell className="w-5 h-5 text-dark-300" />
-              <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-[10px] px-1 rounded-full min-w-[16px] text-center">
-                {unreadCount}
-              </span>
-            </NavLink>
-          )}
+          <div className="w-6" />
         </header>
 
         <main className="flex-1 overflow-y-auto">

@@ -23,9 +23,7 @@ export default function Cadastro() {
 
   useEffect(() => {
     (async () => {
-      const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       setUserCount(count ?? 0);
     })();
   }, []);
@@ -42,25 +40,16 @@ export default function Cadastro() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
     const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
+    if (validationError) { setError(validationError); return; }
     setSubmitting(true);
     const { error } = await signUp(email, password, name);
     if (error) {
       if (error.includes('already registered') || error.includes('already been registered')) {
         setError('Este e-mail já está cadastrado.');
-      } else {
-        setError(error);
-      }
+      } else { setError(error); }
       setSubmitting(false);
-    } else {
-      navigate('/');
-    }
+    } else { navigate('/'); }
   };
 
   if (loading) {
@@ -95,15 +84,7 @@ export default function Cadastro() {
               <label className="label">Nome Completo</label>
               <div className="relative">
                 <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="input pl-10"
-                  placeholder="Seu nome completo"
-                  required
-                  autoComplete="name"
-                />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input pl-10" placeholder="Seu nome completo" required autoComplete="name" />
               </div>
             </div>
 
@@ -111,15 +92,7 @@ export default function Cadastro() {
               <label className="label">E-mail</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input pl-10"
-                  placeholder="seu@email.com"
-                  required
-                  autoComplete="email"
-                />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input pl-10" placeholder="seu@email.com" required autoComplete="email" />
               </div>
             </div>
 
@@ -127,21 +100,8 @@ export default function Cadastro() {
               <label className="label">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input pl-10 pr-10"
-                  placeholder="Mínimo 8 caracteres"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
-                >
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="input pl-10 pr-10" placeholder="Mínimo 8 caracteres" required minLength={8} autoComplete="new-password" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors">
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
@@ -151,51 +111,28 @@ export default function Cadastro() {
               <label className="label">Confirmar Senha</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
-                <input
-                  type={showConfirm ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="input pl-10 pr-10"
-                  placeholder="Repita a senha"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
-                >
+                <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="input pl-10 pr-10" placeholder="Repita a senha" required minLength={8} autoComplete="new-password" />
+                <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors">
                   {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {confirmPassword && password !== confirmPassword && (
-                <p className="text-error-500 text-xs mt-1">As senhas não coincidem.</p>
-              )}
+              {confirmPassword && password !== confirmPassword && <p className="text-error-500 text-xs mt-1">As senhas não coincidem.</p>}
             </div>
 
             {error && (
               <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span>
               </div>
             )}
 
             <button type="submit" disabled={submitting} className="btn-primary w-full">
-              {submitting ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>Criar Conta <UserPlus className="w-4 h-4" /></>
-              )}
+              {submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Criar Conta <UserPlus className="w-4 h-4" /></>}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-dark-400 text-sm">
-              Já tem conta?{' '}
-              <Link to="/login" className="text-primary-500 hover:text-primary-400 font-medium transition-colors">
-                Entrar
-              </Link>
+            <p className="text-dark-400 text-sm">Já tem conta?{' '}
+              <Link to="/login" className="text-primary-500 hover:text-primary-400 font-medium transition-colors">Entrar</Link>
             </p>
           </div>
         </div>

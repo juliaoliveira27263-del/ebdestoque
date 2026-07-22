@@ -25,13 +25,8 @@ export default function Profile() {
       <div><h1 className="text-2xl font-bold text-white">Perfil</h1><p className="text-dark-400 text-sm mt-1">Gerencie suas informações</p></div>
       <div className="card p-5">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-primary-600/15 flex items-center justify-center">
-            <span className="text-primary-500 font-bold text-xl">{profile?.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
-          </div>
-          <div>
-            <p className="text-white font-semibold text-lg">{profile?.name}</p>
-            <div className="flex items-center gap-2 mt-1"><Shield className="w-4 h-4 text-primary-500" /><span className="text-dark-300 text-sm">{roleLabels[profile?.role ?? ''] ?? ''}</span></div>
-          </div>
+          <div className="w-16 h-16 rounded-full bg-primary-600/15 flex items-center justify-center"><span className="text-primary-500 font-bold text-xl">{profile?.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}</span></div>
+          <div><p className="text-white font-semibold text-lg">{profile?.name}</p><div className="flex items-center gap-2 mt-1"><Shield className="w-4 h-4 text-primary-500" /><span className="text-dark-300 text-sm">{roleLabels[profile?.role ?? ''] ?? ''}</span></div></div>
         </div>
         <form onSubmit={handleSave} className="space-y-4">
           <div><label className="label">Nome</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" /><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input pl-10" required /></div></div>

@@ -16,10 +16,7 @@ export default function Industries() {
 
   useEffect(() => { fetchIndustries(); }, []);
 
-  const fetchIndustries = async () => {
-    const { data } = await supabase.from('industries').select('*').order('name');
-    setIndustries(data as Industry[] ?? []); setLoading(false);
-  };
+  const fetchIndustries = async () => { const { data } = await supabase.from('industries').select('*').order('name'); setIndustries(data as Industry[] ?? []); setLoading(false); };
 
   const openCreate = () => { setEditing(null); setForm({ name: '', cnpj: '', contact_name: '', contact_email: '', contact_phone: '', address: '', active: true }); setError(null); setModalOpen(true); };
   const openEdit = (ind: Industry) => { setEditing(ind); setForm({ name: ind.name, cnpj: ind.cnpj ?? '', contact_name: ind.contact_name ?? '', contact_email: ind.contact_email ?? '', contact_phone: ind.contact_phone ?? '', address: ind.address ?? '', active: ind.active }); setError(null); setModalOpen(true); };
@@ -40,9 +37,7 @@ export default function Industries() {
     if (error) { setError(error.message); } else { setDeleteId(null); await fetchIndustries(); }
   };
 
-  if (loading) {
-    return (<div className="flex items-center justify-center h-full p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);
-  }
+  if (loading) return (<div className="flex items-center justify-center h-full p-8"><div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" /></div>);
 
   return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-4">
@@ -50,7 +45,6 @@ export default function Industries() {
         <div><h1 className="text-2xl font-bold text-white">Indústrias</h1><p className="text-dark-400 text-sm mt-1">{industries.length} indústrias cadastradas</p></div>
         <button onClick={openCreate} className="btn-primary"><Plus className="w-5 h-5" />Nova Indústria</button>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {industries.map((ind) => (
           <div key={ind.id} className="card p-4">
@@ -74,7 +68,6 @@ export default function Industries() {
           </div>
         ))}
       </div>
-
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Indústria' : 'Nova Indústria'} size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div><label className="label">Nome *</label><input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="input" required /></div>
@@ -87,13 +80,9 @@ export default function Industries() {
           <div><label className="label">Endereço</label><input type="text" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} className="input" /></div>
           <div><label className="label">Status</label><select value={form.active ? 'true' : 'false'} onChange={(e) => setForm((p) => ({ ...p, active: e.target.value === 'true' }))} className="input"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
           {error && <div className="p-3 rounded-lg bg-error-500/10 border border-error-500/30 text-error-500 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span></div>}
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : editing ? 'Salvar' : 'Criar'}</button>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
-          </div>
+          <div className="flex gap-3 pt-2"><button type="submit" disabled={submitting} className="btn-primary flex-1">{submitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : editing ? 'Salvar' : 'Criar'}</button><button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button></div>
         </form>
       </Modal>
-
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Excluir Indústria" size="sm">
         <p className="text-dark-300 mb-4">Tem certeza que deseja excluir esta indústria? Esta ação não pode ser desfeita.</p>
         <div className="flex gap-3"><button onClick={handleDelete} className="btn-danger flex-1"><Trash2 className="w-4 h-4" />Excluir</button><button onClick={() => setDeleteId(null)} className="btn-secondary">Cancelar</button></div>
